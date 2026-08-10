@@ -1,0 +1,916 @@
+diff --git a/casanovo/__init__.py b/casanovo/__init__.py
+index 1afa731..f7efb9f 100644
+--- a/casanovo/__init__.py
++++ b/casanovo/__init__.py
+@@ -2,3 +2,7 @@ from .version import _get_version
+ 
+ 
+ __version__ = _get_version()
++
++# Import main at the end to avoid circular import
++# casanovo.py imports from this module, so we import it after __version__ is defined
++from .casanovo import main  # noqa: E402
+diff --git a/casanovo/casanovo.py b/casanovo/casanovo.py
+index 6dc1f50..6ce9763 100644
+--- a/casanovo/casanovo.py
++++ b/casanovo/casanovo.py
+@@ -157,6 +157,20 @@ def main() -> None:
+     mode.
+     """,
+ )
++@click.option(
++    "-t",
++    "--teacher_forcing",
++    type=click.BOOL,
++    default=False,
++    help="Run teacher-forcing inference and save scores/tokens to _torch_data.pt (true/false).",
++)
++@click.option(
++    "-x",
++    "--use_plm",
++    type=click.BOOL,
++    default=False,
++    help="Use the PLM fusion model during decoding (true/false).",
++)
+ def sequence(
+     peak_path: Tuple[str],
+     model: Optional[str],
+@@ -166,6 +180,8 @@ def sequence(
+     verbosity: str,
+     force_overwrite: bool,
+     evaluate: bool,
++    teacher_forcing: bool,
++    use_plm: bool,
+ ) -> None:
+     """De novo sequence peptides from tandem mass spectra.
+ 
+@@ -200,7 +216,13 @@ def sequence(
+             logger.info("  %s", peak_file)
+ 
+         results_path = output_path / f"{output_root_name}.mztab"
+-        runner.predict(peak_path, str(results_path), evaluate=evaluate)
++        runner.predict(
++            peak_path,
++            str(results_path),
++            evaluate=evaluate,
++            teacher_forcing=teacher_forcing,
++            use_plm=use_plm,
++        )
+         utils.log_annotate_report(
+             runner.writer.psms, start_time=start_time, end_time=time.time()
+         )
+diff --git a/casanovo/config.yaml b/casanovo/config.yaml
+index 0e8160a..8fbc859 100644
+--- a/casanovo/config.yaml
++++ b/casanovo/config.yaml
+@@ -16,7 +16,7 @@
+ # tolerance.
+ # Set to "inf" (with quotation marks) to disable the filter entirely.
+ precursor_mass_tol: 50  # ppm
+-# Isotopes to consider when comparing predicted and observed precursor m/z's.
++# Isotopes to consider when comparwhaing predicted and observed precursor m/z's.
+ isotope_error_range: [0, 1]
+ # The minimum length of considered peptides.
+ min_peptide_len: 6
+@@ -40,7 +40,7 @@ devices:
+ ###
+ 
+ # Number of beams used in beam search.
+-n_beams: 1
++n_beams: 5
+ 
+ 
+ ###
+@@ -89,7 +89,7 @@ log_metrics: false
+ # How often to log optimizer parameters in steps.
+ log_every_n_steps: 50
+ # Path to save Lance instances.
+-lance_dir:
++lance_dir:
+ # Model validation and checkpointing frequency in training steps.
+ val_check_interval: 50_000
+ 
+@@ -147,7 +147,7 @@ shuffle_buffer_size: 10_000
+ num_sanity_val_steps: 0
+ # Calculate peptide and amino acid precision during training.
+ # This is expensive, so we recommend against it.
+-calculate_precision: false
++calculate_precision: true
+ 
+ # Accumulates gradients over `k` batches before stepping the optimizer.
+ accumulate_grad_batches: 1
+diff --git a/casanovo/data/ms_io.py b/casanovo/data/ms_io.py
+index c9341e2..90a360c 100644
+--- a/casanovo/data/ms_io.py
++++ b/casanovo/data/ms_io.py
+@@ -177,21 +177,29 @@ class MztabWriter:
+                     "end",
+                     "opt_ms_run[1]_aa_scores",
+                     "opt_ms_run[1]_proforma",
++                    "opt_correct_seq",
+                 ]
+             )
+-            by_id = operator.attrgetter("spectrum_id")
++            def _normalize_spectrum_id(psm):
++                fn, idx = psm.spectrum_id
++                if hasattr(idx, "item"):
++                    idx = idx.item()
++                if hasattr(fn, "item"):
++                    fn = fn.item()
++                return str(fn), str(idx)
++
+             for i, psm in enumerate(
+-                natsort.natsorted(self.psms, key=by_id),
++                natsort.natsorted(self.psms, key=_normalize_spectrum_id),
+                 1,
+             ):
+-                filename, idx = psm.spectrum_id
++                filename, idx = _normalize_spectrum_id(psm)
+                 if Path(filename).suffix.lower() == ".mgf" and idx.isnumeric():
+                     idx = f"index={idx}"
+ 
+                 writer.writerow(
+                     [
+                         "PSM",
+-                        psm.aa_sequence,  # sequence
++                        psm.sequence,  # sequence (ProForma, with modifications)
+                         i,  # PSM_ID
+                         psm.protein,  # accession
+                         "null",  # unique
+@@ -208,7 +216,7 @@ class MztabWriter:
+                         psm.charge,  # charge
+                         psm.exp_mz,  # exp_mass_to_charge
+                         psm.calc_mz,  # calc_mass_to_charge
+-                        f"ms_run[{self._run_map[filename]}]:{idx}",
++                        f"ms_run[{self._run_map.get(filename, 1)}]:{idx}",
+                         "null",  # pre
+                         "null",  # post
+                         "null",  # start
+@@ -216,5 +224,6 @@ class MztabWriter:
+                         # opt_ms_run[1]_aa_scores
+                         ",".join(list(map("{:.5f}".format, psm.aa_scores))),
+                         psm.sequence,  # op_ms_run[1]_proforma
++                        psm.true_sequence,  # opt_correct_seq
+                     ]
+                 )
+diff --git a/casanovo/data/psm.py b/casanovo/data/psm.py
+index 1830025..5873df9 100644
+--- a/casanovo/data/psm.py
++++ b/casanovo/data/psm.py
+@@ -1,11 +1,28 @@
+ """Peptide spectrum match dataclass."""
+ 
+ import dataclasses
++import re
+ from typing import Iterable, Optional, Tuple
+ 
+ import spectrum_utils.proforma
+ 
+ 
++def _strip_to_plain_sequence(sequence: str) -> str:
++    """Strip modification annotations to plain amino acids when ProForma parse fails."""
++    plain = re.sub(r"\[.*?\]", "", sequence)
++    plain = re.sub(r"^[+-]?[\d.]+-?", "", plain)
++    plain = re.sub(r"/\d+$", "", plain)
++    return "".join(c for c in plain if c in "ACDEFGHIKLMNPQRSTVWY") or sequence
++
++
++class _FallbackProteoform:
++    """Minimal Proteoform-like object when parse fails (malformed model output)."""
++
++    def __init__(self, sequence: str):
++        self.sequence = sequence
++        self.modifications: list = []
++
++
+ @dataclasses.dataclass
+ class PepSpecMatch:
+     """
+@@ -35,6 +52,9 @@ class PepSpecMatch:
+         sequence, where len(aa_scores) == len(sequence).
+     protein : str
+         Protein associated with the peptide sequence (for db mode).
++    true_sequence : str
++        Ground-truth peptide sequence from annotated input (when available).
++        Written to mzTab as opt_correct_seq.
+     """
+ 
+     sequence: str
+@@ -45,6 +65,7 @@ class PepSpecMatch:
+     exp_mz: float
+     aa_scores: Iterable[float]
+     protein: str = "null"
++    true_sequence: str = "null"
+ 
+     # Private properties to handle proteoform caching
+     _proteoform_sequence: Optional[str] = dataclasses.field(
+@@ -82,10 +103,17 @@ class PepSpecMatch:
+             residue = aa_seq[mod.position]
+ 
+         for src in mod.source or []:
+-            if hasattr(src, "accession"):
+-                return f"{pos}-{src.name} ({residue}):{src.accession}"
+-
+-        return f"{pos}-[{mod.mass:+.4f}]"
++            try:
++                if hasattr(src, "accession"):
++                    return f"{pos}-{src.name} ({residue}):{src.accession}"
++            except KeyError:
++                # Unknown or malformed term (e.g. not in UNIMOD/PSI-MOD)
++                continue
++        try:
++            return f"{pos}-[{mod.mass:+.4f}]"
++        except KeyError:
++            # mod.mass also looks up CV; fallback for unknown/malformed terms
++            return f"{pos}-[?]"
+ 
+     @property
+     def _proteoform(self) -> spectrum_utils.proforma.Proteoform:
+@@ -99,9 +127,14 @@ class PepSpecMatch:
+         """
+         if self._proteoform_sequence != self.sequence:
+             self._proteoform_sequence = self.sequence
+-            self._cache_proteoform = spectrum_utils.proforma.parse(
+-                self.sequence
+-            )[0]
++            try:
++                parsed = spectrum_utils.proforma.parse(self.sequence)
++                self._cache_proteoform = parsed[0] if parsed else None
++            except Exception:
++                self._cache_proteoform = None
++            if self._cache_proteoform is None:
++                plain = _strip_to_plain_sequence(self.sequence)
++                self._cache_proteoform = _FallbackProteoform(plain)
+ 
+         return self._cache_proteoform
+ 
+diff --git a/casanovo/denovo/model.py b/casanovo/denovo/model.py
+index b6694fd..45f9793 100644
+--- a/casanovo/denovo/model.py
++++ b/casanovo/denovo/model.py
+@@ -4,6 +4,7 @@ import collections
+ import heapq
+ import itertools
+ import logging
++import os
+ import warnings
+ from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Union
+ 
+@@ -17,10 +18,14 @@ from .. import config
+ from ..data import ms_io, psm
+ from ..denovo.transformers import PeptideDecoder, SpectrumEncoder
+ from . import evaluate
+-
++from dnps_hybrid.model import load_plm_model, load_fusion_model
+ 
+ logger = logging.getLogger("casanovo")
+ 
++# Global variables to avoid param registration in LightningModule
++PLM_MODEL = None
++FUSION_MODEL = None
++
+ 
+ class Spec2Pep(pl.LightningModule):
+     """
+@@ -117,6 +122,7 @@ class Spec2Pep(pl.LightningModule):
+         out_writer: Optional[ms_io.MztabWriter] = None,
+         calculate_precision: bool = False,
+         tokenizer: PeptideTokenizer | None = None,
++        use_plm: bool = False,
+         **kwargs: Dict,
+     ):
+         super().__init__()
+@@ -159,6 +165,13 @@ class Spec2Pep(pl.LightningModule):
+                 f"Deprecated hyperparameter '{k}' removed from the model.",
+                 DeprecationWarning,
+             )
++        # Lightning's `load_from_checkpoint(..., **kwargs)` forwards any
++        # unrecognized kwargs (e.g. ``weights_only`` that was historically
++        # passed for ``torch.load``) into the model's ``__init__``. Those
++        # leak into ``opt_kwargs`` and crash ``torch.optim.Adam`` at training
++        # start, so strip the known offenders here.
++        for k in ("weights_only",):
++            kwargs.pop(k, None)
+         self.opt_kwargs = kwargs
+ 
+         # Data properties.
+@@ -179,6 +192,15 @@ class Spec2Pep(pl.LightningModule):
+         # Output writer during predicting.
+         self.out_writer = out_writer
+ 
++        global PLM_MODEL, FUSION_MODEL
++        PLM_MODEL = load_plm_model() if use_plm else None
++        FUSION_MODEL = (
++            load_fusion_model(null_model=False, vocab_size=self.vocab_size,
++                              output_size=None)
++            if use_plm
++            else None
++        )
++
+         # Get n-term mod tokens
+         self.n_term = [
+             aa
+@@ -221,6 +243,7 @@ class Spec2Pep(pl.LightningModule):
+             if idx is not None:
+                 self.token_masses[idx] = mass
+ 
++
+     @property
+     def device(self) -> torch.device:
+         """
+@@ -329,7 +352,7 @@ class Spec2Pep(pl.LightningModule):
+         )
+         top_indices = torch.topk(pred[:, 0, :], beam, dim=1)[1]
+         tokens[:, 0, :] = top_indices
+-        scores[:, :1, :, :] = einops.repeat(pred, "B L V -> B L V S", S=beam)
++        scores[:, :1, :self.vocab_size, :] = einops.repeat(pred, "B L V -> B L V S", S=beam)
+ 
+         # Initialize cumulative masses to track peptide masses
+         token_masses = self.token_masses.to(device)
+@@ -367,13 +390,13 @@ class Spec2Pep(pl.LightningModule):
+ 
+                 # Cache peptide predictions from the finished beams (but not
+                 # the discarded beams).
+-                beams_to_cache = finished_beams & ~discarded_beams
+-                if torch.any(beams_to_cache):
++                finished_beams |= discarded_beams
++                if torch.any(finished_beams):
+                     self._cache_finished_beams(
+                         tokens,
+                         scores,
+                         step,
+-                        beams_to_cache,
++                        finished_beams,
+                         beam_fits_precursor,
+                         pred_cache,
+                     )
+@@ -381,7 +404,6 @@ class Spec2Pep(pl.LightningModule):
+                 # Stop decoding when all current beams have been finished.
+                 # Continue with beams that have not been finished and not
+                 # discarded.
+-                finished_beams |= discarded_beams
+                 if torch.all(finished_beams):
+                     break
+ 
+@@ -393,13 +415,43 @@ class Spec2Pep(pl.LightningModule):
+                     active_memories = memories[active_beams]
+                     active_mem_masks = mem_masks[active_beams]
+ 
++                    active_tokens_dec = active_tokens
++
+                     active_scores = self.decoder(
+-                        tokens=active_tokens,
++                        tokens=active_tokens_dec,
+                         precursors=active_precursors,
+                         memory=active_memories,
+                         memory_key_padding_mask=active_mem_masks,
+                     )
+ 
++                    if PLM_MODEL is not None:
++                        _plm_in = PLM_MODEL.input_from_casanovo_vocab(
++                            active_tokens_dec, self.tokenizer
++                        )
++                        _plm_out, *_ = PLM_MODEL(_plm_in)
++                        _plm_out = _plm_out.to(active_scores.device)
++                        _cas_vocab = self.vocab_size
++                        _out_padded = torch.zeros(
++                            active_scores.shape[0],
++                            _plm_out.shape[1],
++                            _cas_vocab,
++                            device=active_scores.device,
++                        )
++                        _out_padded[
++                            :, : active_scores.shape[1], :
++                        ] = active_scores[:, : _out_padded.shape[1], :]
++                        _fusion_in = torch.cat((_out_padded, _plm_out), dim=2)
++                        _fusion_dev = next(FUSION_MODEL.parameters()).device
++                        _fusion_raw = FUSION_MODEL(
++                            _fusion_in.to(_fusion_dev).view(
++                                -1, _fusion_in.size(2)
++                            )
++                        )
++                        _fusion_out = _fusion_raw.view(
++                            active_scores.shape[0], -1, _cas_vocab
++                        ).to(active_scores.device)
++                        active_scores[:, :_fusion_out.shape[1], :] = _fusion_out[:, :active_scores.shape[1], :]
++
+                     scores[active_beams, : step + 2, :] = active_scores
+ 
+                 # Find the top-k beams with the highest scores and continue
+@@ -557,8 +609,11 @@ class Spec2Pep(pl.LightningModule):
+ 
+                     # Batch calculate precursor ions.
+                     # The tokenizer requires input on the CPU.
++                    # Remap I (token vocab_size) → L for mass calc (isobaric).
++                    _ps_dec = padded_sequences.clone()
++                    _ps_dec[_ps_dec == self.vocab_size] = 11
+                     recalc_mzs = self.tokenizer.calculate_precursor_ions(
+-                        padded_sequences.cpu(), charges_to_check.cpu()
++                        _ps_dec.cpu(), charges_to_check.cpu()
+                     ).to(device, dtype=torch.float64)
+ 
+                     # Convert to neutral mass.
+@@ -744,7 +799,9 @@ class Spec2Pep(pl.LightningModule):
+             duplicate = False
+             for pred_cached in pred_cache[spec_idx]:
+                 # TODO: Add duplicate predictions with their highest score.
+-                if torch.equal(pred_cached[-1], pred_peptide_cpu):
++                # tokens are always at index 3 (5th element, index 4, is
++                # the optional reported_score in IL mode).
++                if torch.equal(pred_cached[3], pred_peptide_cpu):
+                     duplicate = True
+                     break
+ 
+@@ -762,13 +819,17 @@ class Spec2Pep(pl.LightningModule):
+             if not has_stop_token:
+                 aa_scores = np.append(aa_scores, 0)
+ 
+-            # Calculate the peptide score using the appropriate scoring function
+-            peptide_score = _peptide_score(
++            # Calculate the peptide score for BEAM SELECTION using individual
++            # token probabilities (preserves I vs L discrimination).
++            peptide_score_selection = _peptide_score(
+                 aa_scores, beam_fits_precursor[i].item()
+             )
+ 
++            aa_scores_report = aa_scores
++            peptide_score_reported = peptide_score_selection
++
+             # Omit the stop token from the amino acid-level scores.
+-            aa_scores = aa_scores[:-1]
++            aa_scores_report = aa_scores_report[:-1]
+             # Add the prediction to the cache (minimum priority queue,
+             # maximum the number of beams elements).
+             if len(pred_cache[spec_idx]) < self.n_beams:
+@@ -779,12 +840,13 @@ class Spec2Pep(pl.LightningModule):
+             heapadd(
+                 pred_cache[spec_idx],
+                 (
+-                    peptide_score,
++                    peptide_score_selection,
+                     np.random.random_sample(),
+-                    aa_scores,
++                    aa_scores_report,
+                     torch.clone(
+                         pred_peptide_cpu
+                     ),  # Ensure tensor is on CPU for storage
++                    peptide_score_reported,
+                 ),
+             )
+ 
+@@ -828,7 +890,7 @@ class Spec2Pep(pl.LightningModule):
+             all spectra.
+         """
+         beam = self.n_beams  # S
+-        vocab = self.vocab_size  # V
++        vocab = scores.shape[2]  # V (30 in IL mode, 29 otherwise)
+         device = self.device  # Get device from input tensor
+ 
+         token_masses = self.token_masses
+@@ -947,30 +1009,59 @@ class Spec2Pep(pl.LightningModule):
+         """
+         for peptides in pred_cache.values():
+             if len(peptides) > 0:
+-                yield [
+-                    (
++                results = []
++                for _heap_entry in heapq.nlargest(self.top_match, peptides):
++                    # pred_cache entries: (selection_score, tie_break,
++                    # aa_scores, tokens[, reported_score]).  The 5th element
++                    # is present in IL mode and holds the combined P(I+L)
++                    # peptide score used for output; selection_score is the
++                    # original per-token score used only for beam ranking.
++                    _sel_score, _, aa_scores, pred_tokens = _heap_entry[:4]
++                    pep_score = _heap_entry[4] if len(_heap_entry) > 4 else _sel_score
++                    if len(pred_tokens) == 0:
++                        continue
++                    try:
++                        # Remap I (token vocab_size) → L for detokenize;
++                        # patch 'I' back at those positions after.
++                        _i_mask = pred_tokens == self.vocab_size
++                        if _i_mask.any():
++                            _pred_tok_dec = pred_tokens.clone()
++                            _pred_tok_dec[_i_mask] = 11
++                        else:
++                            _pred_tok_dec = pred_tokens
++                        decoded = self.tokenizer.detokenize(
++                            torch.unsqueeze(_pred_tok_dec, 0),
++                            join=False,
++                        )[0]
++                    except IndexError:
++                        # depthcharge.detokenize indexes seq[0] after trimming
++                        # stop tokens; an all-stop prediction leaves seq empty.
++                        continue
++                    if not decoded:
++                        continue
++                    if _i_mask.any() and len(decoded) == len(pred_tokens):
++                        # _i_mask indexes pred_tokens (decoder order, C→N
++                        # for tokenizer.reverse=True).  detokenize reverses
++                        # to N→C for display, so a C→N position p maps to
++                        # N→C position len-1-p in `decoded`.  Without this
++                        # mapping, every non-middle I lands at a mirrored
++                        # position — usually overwriting an unrelated AA.
++                        decoded = list(decoded)
++                        n_dec = len(decoded)
++                        for _pos in _i_mask.nonzero(as_tuple=True)[0].tolist():
++                            target = (n_dec - 1 - _pos) if self.tokenizer.reverse else _pos
++                            if 0 <= target < n_dec:
++                                decoded[target] = "I"
++                    results.append((
+                         pep_score,
+                         (
+                             aa_scores[::-1]
+                             if self.tokenizer.reverse
+                             else aa_scores
+                         ),
+-                        # FIXME: Remove work around when depthcharge reverse
+-                        #   detokenization bug is fixed.
+-                        # self.tokenizer.detokenize(
+-                        #     torch.unsqueeze(pred_tokens, 0)
+-                        # )[0],
+-                        "".join(
+-                            self.tokenizer.detokenize(
+-                                torch.unsqueeze(pred_tokens, 0),
+-                                join=False,
+-                            )[0]
+-                        ),
+-                    )
+-                    for pep_score, _, aa_scores, pred_tokens in heapq.nlargest(
+-                        self.top_match, peptides
+-                    )
+-                ]
++                        "".join(decoded),
++                    ))
++                yield results
+             else:
+                 yield []
+ 
+@@ -1012,6 +1103,8 @@ class Spec2Pep(pl.LightningModule):
+         mzs = batch["mz_array"]
+         intensities = batch["intensity_array"]
+         seqs = batch.get("seq")
++        if seqs is not None and isinstance(seqs, torch.Tensor) and seqs.dtype != torch.long:
++            seqs = seqs.long()
+ 
+         return mzs, intensities, precursors, seqs
+ 
+@@ -1166,18 +1259,29 @@ class Spec2Pep(pl.LightningModule):
+         predictions: List[psm.PepSpecMatch]
+             Predicted PSMs for the given batch of spectra.
+         """
++        if "seq" in batch:
++            true_seqs = [
++                "".join(pep)
++                for pep in self.tokenizer.detokenize(batch["seq"], join=False)
++            ]
++        else:
++            n_spectra = batch["precursor_mz"].shape[0]
++            true_seqs = ["null"] * n_spectra
++
+         predictions = []
+         for (
+             filename,
+             scan,
+             precursor_charge,
+             precursor_mz,
++            true_seq,
+             spectrum_preds,
+         ) in zip(
+             batch["peak_file"],
+             batch["scan_id"],
+             batch["precursor_charge"],
+             batch["precursor_mz"],
++            true_seqs,
+             self.forward(batch),
+         ):
+             for peptide_score, aa_scores, peptide in spectrum_preds:
+@@ -1190,6 +1294,7 @@ class Spec2Pep(pl.LightningModule):
+                         calc_mz=np.nan,
+                         exp_mz=precursor_mz.item(),
+                         aa_scores=aa_scores,
++                        true_sequence=true_seq,
+                     )
+                 )
+ 
+@@ -1255,9 +1360,13 @@ class Spec2Pep(pl.LightningModule):
+                 spec_match.aa_scores = spec_match.aa_scores[1:]
+ 
+             # Compute the precursor m/z of the predicted peptide.
+-            spec_match.calc_mz = self.tokenizer.calculate_precursor_ions(
+-                spec_match.sequence, torch.tensor(spec_match.charge)
+-            ).item()
++            try:
++                spec_match.calc_mz = self.tokenizer.calculate_precursor_ions(
++                    spec_match.sequence, torch.tensor(spec_match.charge)
++                ).item()
++            except Exception:
++                # Fallback when sequence fails to parse (e.g. ProFormaError "Missing Closing Tag")
++                spec_match.calc_mz = spec_match.exp_mz
+ 
+             self.out_writer.psms.append(spec_match)
+ 
+diff --git a/casanovo/denovo/model_runner.py b/casanovo/denovo/model_runner.py
+index e97db46..2a4e789 100644
+--- a/casanovo/denovo/model_runner.py
++++ b/casanovo/denovo/model_runner.py
+@@ -18,6 +18,7 @@ from depthcharge.tokenizers.peptides import MskbPeptideTokenizer
+ from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
+ from lightning.pytorch.strategies import DDPStrategy
+ from torch.utils.data import DataLoader
++from tqdm import tqdm
+ 
+ from .. import utils
+ from ..config import Config
+@@ -195,10 +196,31 @@ class ModelRunner:
+         self.initialize_data_module(train_paths, valid_paths)
+         self.loaders.setup()
+ 
++        # Optional true-resume: if DNPS_RESUME_CKPT points to a previously
++        # saved Lightning checkpoint, hand it to ``trainer.fit`` so that
++        # the optimizer state, LR scheduler step, epoch/global step counter,
++        # and RNG state are all restored. Without this Lightning reads only
++        # the model weights via ``load_from_checkpoint`` and would restart
++        # warmup from step 0 with a fresh AdamW optimizer.
++        resume_ckpt = os.environ.get("DNPS_RESUME_CKPT", "").strip() or None
++        if resume_ckpt is not None:
++            if not Path(resume_ckpt).exists():
++                logger.warning(
++                    "DNPS_RESUME_CKPT=%s does not exist; starting "
++                    "training from step 0 instead.",
++                    resume_ckpt,
++                )
++                resume_ckpt = None
++            else:
++                logger.info(
++                    "Resuming training from checkpoint: %s", resume_ckpt
++                )
++
+         self.trainer.fit(
+             self.model,
+             self.loaders.train_dataloader(),
+             self.loaders.val_dataloader(),
++            ckpt_path=resume_ckpt,
+         )
+ 
+     def log_metrics(self, test_dataloader: DataLoader) -> None:
+@@ -215,20 +237,45 @@ class ModelRunner:
+             model predictions.
+         """
+         pred_seqs, true_seqs, pred_i = [], [], 0
++        pad_int = getattr(self.model.tokenizer, "padding_int", 0)
++        stop_int = getattr(self.model.tokenizer, "stop_int", None)
+ 
+         for batch in test_dataloader:
+             for peak_file, scan_id, true_seq in zip(
+                 batch["peak_file"], batch["scan_id"], batch["seq"]
+             ):
+-                true_seqs.append(true_seq.cpu().detach().numpy())
+-                if pred_i < len(self.writer.psms) and self.writer.psms[
+-                    pred_i
+-                ].spectrum_id == (peak_file, scan_id):
+-                    pred_tokens = self.model.tokenizer.tokenize(
+-                        self.writer.psms[pred_i].sequence
+-                    ).squeeze(0)
+-                    pred_seqs.append(pred_tokens.cpu().detach().numpy())
+-                    pred_i += 1
++                # batch["seq"] is right-padded with `pad_int` to the batch's
++                # max length; aa_match_batch counts every element of the array
++                # as an AA, so unstripped padding inflates n_aa_true and
++                # guarantees aa_matches.all() == False (peptide precision = 0).
++                true_arr = true_seq.cpu().detach().numpy()
++                mask = true_arr != pad_int
++                if stop_int is not None:
++                    mask &= true_arr != stop_int
++                true_arr = true_arr[mask]
++                true_seqs.append(true_arr)
++                if (
++                    pred_i < len(self.writer.psms)
++                    and self.writer.psms[pred_i].spectrum_id
++                    == (peak_file, scan_id)
++                ):
++                    seq_str = self.writer.psms[pred_i].sequence
++                    try:
++                        pred_tokens = self.model.tokenizer.tokenize(seq_str).squeeze(
++                            0
++                        )
++                        pred_seqs.append(pred_tokens.cpu().detach().numpy())
++                    except Exception as e:
++                        logger.warning(
++                            "Failed to tokenize predicted sequence '%s' for %s:%s: %s",
++                            seq_str,
++                            peak_file,
++                            scan_id,
++                            e,
++                        )
++                        pred_seqs.append(None)
++                    finally:
++                        pred_i += 1
+                 else:
+                     pred_seqs.append(None)
+ 
+@@ -257,6 +304,8 @@ class ModelRunner:
+         peak_path: Iterable[str],
+         results_path: str,
+         evaluate: bool = False,
++        teacher_forcing: bool = False,
++        use_plm: bool = False,
+     ) -> None:
+         """
+         Predict peptide sequences with a trained Casanovo model.
+@@ -276,6 +325,11 @@ class ModelRunner:
+             Note: peak_path must point to annotated MS data files when
+             running model evaluation. Files that are not an annotated
+             peak file format will be ignored if evaluate is set to true.
++        teacher_forcing : bool
++            If True, run teacher-forcing inference and save scores/tokens
++            to a _torch_data.pt file.
++        use_plm : bool
++            If True, use the PLM fusion model during decoding.
+         """
+         self.writer = ms_io.MztabWriter(results_path)
+         self.writer.set_metadata(
+@@ -286,7 +340,7 @@ class ModelRunner:
+ 
+         self.initialize_trainer(train=False)
+         self.initialize_tokenizer()
+-        self.initialize_model(train=False)
++        self.initialize_model(train=False, use_plm=use_plm)
+         self.model.out_writer = self.writer
+ 
+         test_paths = self._get_input_paths(peak_path, False, "test")
+@@ -294,7 +348,7 @@ class ModelRunner:
+         self.initialize_data_module(test_paths=test_paths)
+ 
+         try:
+-            self.loaders.setup(stage="test", annotated=evaluate)
++            self.loaders.setup(stage="test", annotated=evaluate or teacher_forcing)
+         except (KeyError, OSError) as e:
+             if evaluate:
+                 error_message = (
+@@ -309,10 +363,67 @@ class ModelRunner:
+             raise
+ 
+         predict_dataloader = self.loaders.predict_dataloader()
+-        self.trainer.predict(self.model, predict_dataloader)
+ 
+-        if evaluate:
+-            self.log_metrics(predict_dataloader)
++        if not teacher_forcing:
++            self.trainer.predict(self.model, predict_dataloader)
++            if evaluate:
++                self.log_metrics(predict_dataloader)
++            return
++
++        # Teacher-forcing: run _forward_step in a loop and save scores/tokens (Modanovo-style).
++        try:
++            num_samples = len(self.loaders.test_dataset)
++        except TypeError:
++            num_samples = None  # e.g. SpectrumDataset has no len()
++        if num_samples is not None:
++            all_scores = torch.zeros(
++                num_samples,
++                self.model.max_peptide_len + 1,
++                self.model.vocab_size + 1,
++            )
++            all_seqs = torch.zeros(num_samples, self.model.max_peptide_len + 1)
++        else:
++            all_scores_list = []
++            all_seqs_list = []
++        max_len = 0
++        with torch.no_grad():
++            i = 0
++            pbar = tqdm(total=num_samples, desc="Running inference") if num_samples else tqdm(desc="Running inference")
++            for batch in predict_dataloader:
++                for key, val in batch.items():
++                    if isinstance(val, torch.Tensor):
++                        batch[key] = val.to(self.model.device)
++                if "seq" not in batch:
++                    raise ValueError("seq not in batch")
++                batch["seq"] = batch["seq"].to(torch.int64)
++                scores, tokens = self.model._forward_step(batch)
++                batch_size = scores.shape[0]
++                if num_samples is not None:
++                    all_scores[i : i + batch_size, : scores.shape[1], : scores.shape[2]] = scores.cpu()
++                    all_seqs[i : i + batch_size, : tokens.shape[1]] = tokens.cpu()
++                    i += batch_size
++                else:
++                    all_scores_list.append(scores.cpu())
++                    all_seqs_list.append(tokens.cpu())
++                max_len = max(max_len, scores.shape[1], tokens.shape[1])
++                pbar.update(batch_size)
++            pbar.close()
++        if num_samples is not None:
++            all_scores = all_scores[:, :max_len, :]
++            all_seqs = all_seqs[:, :max_len]
++        else:
++            all_scores_list = [
++                torch.nn.functional.pad(s, (0, 0, 0, max_len - s.shape[1])) for s in all_scores_list
++            ]
++            all_seqs_list = [
++                torch.nn.functional.pad(t, (0, max_len - t.shape[1])) for t in all_seqs_list
++            ]
++            all_scores = torch.cat(all_scores_list, dim=0)[:, :max_len, :]
++            all_seqs = torch.cat(all_seqs_list, dim=0)[:, :max_len]
++        torch.save(
++            {"emb": all_scores.detach().cpu(), "true_tokenized": all_seqs.detach().cpu()},
++            str(self.writer.filename).replace(".mztab", "_torch_data.pt"),
++        )
+ 
+     def initialize_trainer(self, train: bool) -> None:
+         """
+@@ -374,6 +485,43 @@ class ModelRunner:
+                             )
+                         )
+ 
++                    # Optional wandb logging, enabled via the dnps_hybrid
++                    # convention of DNPS_WANDB=1. Run name defaults to the
++                    # basename of the output directory; project defaults to
++                    # ``dnps`` to match the rest of the repo.
++                    if os.environ.get("DNPS_WANDB", "0") in (
++                        "1",
++                        "true",
++                        "True",
++                    ):
++                        try:
++                            wandb_run_name = os.environ.get(
++                                "WANDB_RUN_NAME",
++                                Path(self.output_dir).name or "casanovo",
++                            )
++                            wandb_project = os.environ.get(
++                                "WANDB_PROJECT", "dnps"
++                            )
++                            loggers.append(
++                                lightning.pytorch.loggers.WandbLogger(
++                                    project=wandb_project,
++                                    name=wandb_run_name,
++                                    save_dir=self.output_dir,
++                                    config=dict(self.config.items()),
++                                )
++                            )
++                            logger.info(
++                                "WandbLogger enabled: project=%s name=%s",
++                                wandb_project,
++                                wandb_run_name,
++                            )
++                        except Exception as exc:  # pragma: no cover
++                            logger.warning(
++                                "DNPS_WANDB=1 but WandbLogger init failed; "
++                                "continuing without wandb. Error: %s",
++                                exc,
++                            )
++
+                     if len(loggers) > 0:
+                         self.callbacks.append(
+                             LearningRateMonitor(
+@@ -424,7 +572,9 @@ class ModelRunner:
+             stop_token="$",
+         )
+ 
+-    def initialize_model(self, train: bool, db_search: bool = False) -> None:
++    def initialize_model(
++        self, train: bool, db_search: bool = False, use_plm: bool = False
++    ) -> None:
+         """Initialize the Casanovo model.
+ 
+         Parameters
+@@ -434,6 +584,8 @@ class ModelRunner:
+             evaluation / inference.
+         db_search : bool
+             Determines whether to use the DB search model subclass.
++        use_plm : bool
++            If True, load the PLM and fusion models for hybrid decoding.
+         """
+         try:
+             tokenizer = self.tokenizer
+@@ -463,6 +615,7 @@ class ModelRunner:
+             calculate_precision=self.config.calculate_precision,
+             out_writer=self.writer,
+             tokenizer=tokenizer,
++            use_plm=use_plm,
+         )
+ 
+         # Reconfigurable non-architecture related parameters for a
+@@ -483,6 +636,7 @@ class ModelRunner:
+             calculate_precision=self.config.calculate_precision,
+             out_writer=self.writer,
+         )
++        loaded_model_params["use_plm"] = use_plm
+ 
+         if self.model_filename is None:
+             if db_search:
+@@ -514,7 +668,6 @@ class ModelRunner:
+             self.model = model_clss.load_from_checkpoint(
+                 self.model_filename,
+                 map_location=device,
+-                weights_only=False,
+                 **loaded_model_params,
+             )
+             # Use tokenizer initialized from config file instead of loaded
+@@ -538,7 +691,6 @@ class ModelRunner:
+                 self.model = model_clss.load_from_checkpoint(
+                     self.model_filename,
+                     map_location=device,
+-                    weights_only=False,
+                     **model_params,
+                 )
+                 self.model.tokenizer = tokenizer

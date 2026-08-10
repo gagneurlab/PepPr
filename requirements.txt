@@ -1,0 +1,11 @@
+biopython==1.85
+numpy==2.2.5
+pandas==2.2.3
+pygtrie==2.5.0
+tqdm==4.67.1
+wandb==0.19.11
+ipykernel
+pyteomics
+scikit-learn
+matplotlib
+plotnine

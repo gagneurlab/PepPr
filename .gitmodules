@@ -1,0 +1,6 @@
+[submodule "casanovo"]
+	path = casanovo
+	url = https://github.com/Noble-Lab/casanovo
+[submodule "ContraNovo"]
+	path = ContraNovo
+	url = https://github.com/BEAM-Labs/ContraNovo.git
