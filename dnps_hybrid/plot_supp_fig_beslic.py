@@ -29,7 +29,7 @@ from dnps_hybrid.const import (
     COLOR_PP,
     PROJECT_ROOT,
 )
-from nontryp_registry import RUNS
+from antibody.nontryp_registry import RUNS
 
 # ── Layout: 6 mAbs × 8 proteases ────────────────────────────────────────
 MABS = ["IgG1_Human_H", "IgG1_Human_L", "Herceptin",

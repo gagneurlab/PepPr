@@ -215,7 +215,9 @@ casanovo sequence \
 
 `--use_plm false` reproduces the plain Casanovo baseline. The full evaluation
 pipeline (both arms over all benchmark datasets) is orchestrated by
-`dnps_hybrid/inference.py auto`; `run_on_slurm.sh` is the SLURM entry point.
+`dnps_hybrid/inference.py auto`; `scripts/run_nine_species_inference.slurm` is the
+SLURM entry point for the nine-species benchmark (`same`/`cross` arms), and
+`run_kol_eval.sh` for the Kingdoms-of-Life generalization sweep.
 
 ## 4. Reproduce the paper figures
 
@@ -236,8 +238,8 @@ python dnps_hybrid/plot_figure_4.py      # mAb assembly (V+C)
 for script in dnps_hybrid/plot_supp_fig_*.py; do python "$script"; done
 ```
 
-Benchmark baselines (PowerNovo, SMSNet, ContraNovo, InstaNovo) are launched via
-`run_powernovo*.py` and compared in `plot_benchmark.py`.
+Benchmark baselines (PowerNovo, ContraNovo, InstaNovo) are launched via
+`run_baseline.sh <tool> <species>` and compared in `plot_benchmark.py`.
 
 The spectral-angle summary uses Koina/Prosit when it is regenerated and
 therefore requires network access to the Koina service. ThermoRawFileParser is
