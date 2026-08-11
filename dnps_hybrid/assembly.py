@@ -30,7 +30,10 @@ import npysearch as npy
 from dnps_hybrid import const
 
 
-ALPS_JAR = os.path.join(const.PROJECT_ROOT, "tools", "ALPS", "ALPS.jar")
+# ALPS is third-party and not redistributed with this repo. Obtain ALPS.jar and
+# either set DNPS_ALPS_JAR or place it at tools/ALPS/ALPS.jar (see the README there).
+ALPS_JAR = os.environ.get(
+    "DNPS_ALPS_JAR", os.path.join(const.PROJECT_ROOT, "tools", "ALPS", "ALPS.jar"))
 _MOD_BRACKET = re.compile(r"\[[^\]]*\]")
 _MOD_PAREN = re.compile(r"\([^)]*\)")
 _MASS_SHIFT = re.compile(r"[+-]?\d+\.\d+")
@@ -119,6 +122,11 @@ def run_alps(csv_path: str, k: int, c: int) -> str:
     if os.path.exists(fasta) and os.path.getmtime(fasta) >= os.path.getmtime(csv_path):
         print(f"  [skip] cached k={k}: {os.path.basename(fasta)}")
         return fasta
+    if not os.path.exists(ALPS_JAR):
+        raise FileNotFoundError(
+            f"ALPS.jar not found at {ALPS_JAR}. ALPS is third-party and is not "
+            f"bundled with this repository; obtain it and set DNPS_ALPS_JAR to its "
+            f"path (or place it at tools/ALPS/ALPS.jar). See tools/ALPS/README.md.")
     command = ["java", "-jar", ALPS_JAR, csv_path, str(k), str(c)]
     print(f"  $ {' '.join(command)}")
     result = subprocess.run(

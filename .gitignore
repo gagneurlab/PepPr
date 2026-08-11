@@ -31,3 +31,6 @@ modanovo_logs/
 CLEANUP_PLAN.md
 .claude/
 .vscode/
+
+# Third-party ALPS assembler jar (obtain separately; see tools/ALPS/README.md)
+tools/ALPS/*.jar
