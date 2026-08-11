@@ -217,7 +217,7 @@ casanovo sequence \
 pipeline (both arms over all benchmark datasets) is orchestrated by
 `dnps_hybrid/inference.py auto`; `scripts/run_nine_species_inference.slurm` is the
 SLURM entry point for the nine-species benchmark (`same`/`cross` arms), and
-`run_kol_eval.sh` for the Kingdoms-of-Life generalization sweep.
+`scripts/run_kol_eval.sh` for the Kingdoms-of-Life generalization sweep.
 
 ## 4. Reproduce the paper figures
 
@@ -226,20 +226,20 @@ small metadata tables. Regenerate derived plotting summaries before composing
 the figures:
 
 ```bash
-python plot_scatter_precision.py
-python dnps_hybrid/plot_supp_fig_1.py
-python dnps_hybrid/plot_supp_fig_2.py
-python plot_benchmark.py --species mouse
-python plot_kol_overlap_vs_pp_gain.py
+python scripts/plot_scatter_precision.py
+python scripts/plot_supp_fig_1.py
+python scripts/plot_supp_fig_2.py
+python scripts/plot_benchmark.py --species mouse
+python scripts/plot_kol_overlap_vs_pp_gain.py
 
-python dnps_hybrid/plot_figure_2.py      # nine-species benchmark
-python dnps_hybrid/plot_figure_3.py      # cross-species, SAAV, KoL generalization
-python dnps_hybrid/plot_figure_4.py      # mAb assembly (V+C)
-for script in dnps_hybrid/plot_supp_fig_*.py; do python "$script"; done
+python scripts/plot_figure_2.py      # nine-species benchmark
+python scripts/plot_figure_3.py      # cross-species, SAAV, KoL generalization
+python scripts/plot_figure_4.py      # mAb assembly (V+C)
+for script in scripts/plot_supp_fig_*.py; do python "$script"; done
 ```
 
 Benchmark baselines (PowerNovo, ContraNovo, InstaNovo) are launched via
-`run_baseline.sh <tool> <species>` and compared in `plot_benchmark.py`.
+`scripts/run_baseline.sh <tool> <species>` and compared in `scripts/plot_benchmark.py`.
 
 The spectral-angle summary uses Koina/Prosit when it is regenerated and
 therefore requires network access to the Koina service. ThermoRawFileParser is

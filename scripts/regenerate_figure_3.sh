@@ -15,15 +15,15 @@ if [[ "$n_iso" -lt 10 ]]; then
 fi
 
 if [[ ! -s "$MUT_MZTAB" ]]; then
-  echo "[fatal] missing $MUT_MZTAB (submit run_mutations_inference_human_iso.sh)" >&2
+  echo "[fatal] missing $MUT_MZTAB (submit scripts/run_mutations_inference_human_iso.sh)" >&2
   exit 2
 fi
 
-python plot_kol_overlap_vs_pp_gain.py \
+python scripts/plot_kol_overlap_vs_pp_gain.py \
   --runs-dir "$KOL_RUNS" \
   --plm-species human_iso mouse \
   --csv-out kol_overlap_vs_pp_gain.csv \
   --out kol_overlap_vs_pp_gain.png
 
-python dnps_hybrid/plot_figure_3.py
+python scripts/plot_figure_3.py
 echo "Wrote $REPO_ROOT/figure_3.png"
