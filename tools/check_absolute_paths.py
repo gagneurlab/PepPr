@@ -23,17 +23,13 @@ MAINTAINED_ROOT_FILES = (
     "antibody/run_mab.sh",
     "scripts/eval_kingdoms_pp.py",
     "scripts/run_benchmark.py",
-    "scripts/run_proteometools_saav.py",
+    "scripts/run_inference.slurm",
     "scripts/run_baseline.sh",
     "scripts/run_kol_eval.sh",
     "scripts/run_plm.sh",
-    "scripts/train_antibody_prior_human.sh",
-    "scripts/train_antibody_prior_mouse.sh",
+    "scripts/train_antibody_prior.sh",
     "scripts/train_contranovo_fusion.sh",
     "scripts/run_nine_species_inference.slurm",
-    "scripts/zenodo_archive.py",
-    "scripts/build_zenodo_archive.py",
-    "scripts/validate_zenodo_archive.py",
 )
 
 MAINTAINED_SCRIPT_GLOBS = (

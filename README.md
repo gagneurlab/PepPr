@@ -81,29 +81,8 @@ machine-specific filesystem layout is assumed. Repository paths (the Casanovo
 and ContraNovo submodules, configs, and source code) are resolved from the
 checkout itself.
 
-The archive can be assembled from the original project storage with:
-
-```bash
-python scripts/build_zenodo_archive.py \
-    --data-root /path/to/original/project/data \
-    --smsnet-root /path/to/SMSNet \
-    --repo-root . \
-    --output /path/on/large/storage/dnps_hybrid_zenodo
-python scripts/validate_zenodo_archive.py \
-    /path/on/large/storage/dnps_hybrid_zenodo --checksums
-python scripts/build_zenodo_release_tarball.py \
-    --staging /path/on/large/storage/dnps_hybrid_zenodo
-```
-
-Use `--dry-run` on the builder to inspect the manifest without copying data.
-Use `--prune` when refreshing an existing staging directory to remove artifacts
-that are no longer selected by the canonical manifest.
-The generated `ARCHIVE_README.md`, `MANIFEST.tsv`, and `MANIFEST.json` record the
+The archive's `ARCHIVE_README.md`, `MANIFEST.tsv`, and `MANIFEST.json` record the
 role, provenance, size, and SHA-256 checksum of every archived file.
-
-Upload the resulting `dnps_hybrid_zenodo.tar.gz` to Zenodo as a single release
-file (13.2 GB compressed; ~20 GB extracted). Users extract and configure it as
-shown under [Download the data archive](#download-the-data-archive) above.
 
 Archive layout:
 
@@ -259,5 +238,4 @@ Run the portability and archive checks with:
 
 ```bash
 python tools/check_absolute_paths.py
-python scripts/validate_zenodo_archive.py "$DNPS_DATA_PATH"
 ```
