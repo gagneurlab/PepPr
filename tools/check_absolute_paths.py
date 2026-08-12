@@ -26,16 +26,12 @@ MAINTAINED_ROOT_FILES = (
     "scripts/run_inference.slurm",
     "scripts/run_baseline.sh",
     "scripts/run_kol_eval.sh",
-    "scripts/run_plm.sh",
-    "scripts/train_antibody_prior.sh",
-    "scripts/train_contranovo_fusion.sh",
     "scripts/run_nine_species_inference.slurm",
+    "scripts/train.sh",
 )
 
 MAINTAINED_SCRIPT_GLOBS = (
     "scripts/plot_*.py",
-    "scripts/train_fusion_human_massivekb*.slurm",
-    "scripts/train_pepLM_*.slurm",
 )
 
 

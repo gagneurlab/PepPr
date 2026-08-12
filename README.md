@@ -148,6 +148,10 @@ DNPS_SPECIES=human python dnps_hybrid/prepare_data.py
 DNPS_SPECIES=human python dnps_hybrid/train_peptide_prior_model.py
 ```
 
+On SLURM these two steps are wrapped by `scripts/train.sh`:
+`train.sh plm <species>` (proteome), `train.sh germline-plm <human|mouse>`
+(germline sliding-window), or `train.sh antibody-plm <human|mouse>`.
+
 To train a pepLM on something other than a UniProt proteome (e.g. an antibody
 germline repertoire), build `antibody/antibody_{human,mouse}.fasta` with
 `dnps_hybrid/build_antibody_db.py` (which produces the clean V-REGION + J·C
@@ -171,6 +175,9 @@ DNPS_SPECIES=human python dnps_hybrid/prepare_data.py
 #     DNPS_NULL_MODEL_PATH.
 DNPS_FUSION_BACKBONE=casanovo python dnps_hybrid/train_fusion_head.py
 ```
+
+On SLURM: `scripts/train.sh fusion` (Casanovo head) or
+`scripts/train.sh contranovo-fusion` (ContraNovo baseline head).
 
 The fusion head is **pepLM-independent** by design: once trained it can be reused
 with any pepLM of the same backbone/vocab — you do not retrain it per species.
