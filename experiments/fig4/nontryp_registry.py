@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from dnps_hybrid.const import (
+from peptide_priors.const import (
     MABS_BENCHMARK_DIR,
     MABS_REFERENCES_DIR,
     MABS_RESULTS_DIR,

@@ -16,7 +16,7 @@ from collections import Counter
 
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from dnps_hybrid import const
+from peptide_priors import const
 
 import numpy as np
 import pandas as pd
@@ -27,13 +27,13 @@ from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 
 # Region helpers remain in experiments/; Figure 4 helpers are package modules.
 
-from dnps_hybrid.metrics import (
+from peptide_priors.metrics import (
     _normalize_to_massivekb, _expand_masses, evaluate, MASSIVEKB_MASSES,
     load_mztab_with_mgf, plot_sequence_diff, plot_spectrum_on_ax, _AA_RE,
     annotate_missing_ion_gap, _ion_mz, _B_ION_COLOR,
 )
-from dnps_hybrid.const import COLOR_LIGHT_GRAY, COLOR_PP, COLOR_RED
-from dnps_hybrid.antibody_utils import (
+from peptide_priors.const import COLOR_LIGHT_GRAY, COLOR_PP, COLOR_RED
+from antibody_utils import (
     ARM_STYLE,
     MAB_SPECS,
     XANOVO_PROTEASES,
@@ -460,7 +460,7 @@ def collect_psm_rows(mabs, ref_by_mab):
         sys.exit("No PSMs collected — all mztabs missing?")
     return pd.concat(rows, ignore_index=True)
 
-# plot_sequence_diff and plot_spectrum_on_ax now live in dnps_hybrid.metrics
+# plot_sequence_diff and plot_spectrum_on_ax now live in peptide_priors.metrics
 # — imported at the top of this file.
 
 def _v_portion_for_row(row, ref_by_mab):
@@ -527,7 +527,7 @@ def plot_all_panels(dat, ref_by_mab, out_path):
         ns = [len(dat[(dat["series"] == s) & (dat["category"] == cat)])
               for s in ARM_SERIES]
         n_per_cat.append(max(ns) if ns else 0)
-    from dnps_hybrid.metrics import wilson_ci
+    from peptide_priors.metrics import wilson_ci
     for si, series in enumerate(ARM_SERIES):
         precs, err_lo, err_hi = [], [], []
         for cat in CATEGORIES:
@@ -591,7 +591,7 @@ def plot_all_panels(dat, ref_by_mab, out_path):
             for p, off in zip(group, offsets):
                 x_by_protease[p] = L + off
 
-    from dnps_hybrid.metrics import wilson_ci
+    from peptide_priors.metrics import wilson_ci
     # Bubble area scales sqrt with N so the visual area is roughly linear in N
     # without letting pepsin's PSMs dwarf trypsin's too aggressively.
     def _bubble_size(n):
@@ -680,7 +680,7 @@ def plot_all_panels(dat, ref_by_mab, out_path):
         v5_pred  ="EKARLDAAPTVSLFPPSSEQL", v5_score=0.11,
         pp_pred  ="ELKRADAAPTVSLFPPSSEQL", pp_score=0.56,
         boundary_pos=4,
-        true_sa=0.8081,   # Prosit_2020_intensity_HCD SA (see dnps_hybrid.sa_prosit)
+        true_sa=0.8081,   # Prosit_2020_intensity_HCD SA (see experiments.utils.sa_prosit)
     )
 
     # ── Panel D: deamidation correction (N→D on left, Q→E on right) ───────

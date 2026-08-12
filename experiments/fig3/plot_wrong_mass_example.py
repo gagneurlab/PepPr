@@ -24,11 +24,11 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from dnps_hybrid.metrics import (
+from peptide_priors.metrics import (
     plot_sequence_diff, plot_spectrum_on_ax,
     annotate_missing_ion_gap, annotate_precursor_readout,
 )
-from dnps_hybrid.const import nine_species_benchmark_dir
+from peptide_priors.const import nine_species_benchmark_dir
 
 EXAMPLE = dict(
     mgf=os.path.join(nine_species_benchmark_dir("mouse"),

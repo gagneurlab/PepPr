@@ -30,10 +30,10 @@ plt.rcParams.update({
 })
 from sklearn.metrics import auc
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from dnps_hybrid.metrics import (
+from peptide_priors.metrics import (
     _normalize_to_massivekb, evaluate, MASSIVEKB_MASSES, load_mztab_with_mgf,
 )
-from dnps_hybrid.const import (
+from peptide_priors.const import (
     COLOR_CASANOVO as COLOR_DNPS,
     COLOR_PP,
     result_run_path,

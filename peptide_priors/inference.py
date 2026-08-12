@@ -4,9 +4,9 @@ import sys
 import os
 import re
 import tempfile
-from dnps_hybrid import const
+from peptide_priors import const
 from tqdm import tqdm
-from dnps_hybrid.model import load_plm_model, load_fusion_model
+from peptide_priors.model import load_plm_model, load_fusion_model
 import glob
 
 
@@ -103,13 +103,13 @@ elif model_type == 'contranovo':
             "run prepare_data first or set DNPS_SPECIES correctly."
         )
 
-    # ContraNovo's model.py imports dnps_hybrid for the PLM/fusion loaders, but
-    # the khsam_contranovo env doesn't have dnps_hybrid installed. Expose this
+    # ContraNovo's model.py imports peptide_priors for the PLM/fusion loaders, but
+    # the khsam_contranovo env doesn't have peptide_priors installed. Expose this
     # checkout on PYTHONPATH for the subprocess so the import resolves.
-    dnps_hybrid_root = const.PROJECT_ROOT
+    peptide_priors_root = const.PROJECT_ROOT
     existing_pp = os.environ.get("PYTHONPATH", "")
     sub_pythonpath = (
-        f"{dnps_hybrid_root}:{existing_pp}" if existing_pp else dnps_hybrid_root
+        f"{peptide_priors_root}:{existing_pp}" if existing_pp else peptide_priors_root
     )
 
     for use_plm in ("false", "true"):

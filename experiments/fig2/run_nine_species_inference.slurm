@@ -116,7 +116,7 @@ for sp in "${SPECIES_LIST[@]}"; do
   echo "[$sp] DNPS_SPECIES=$sp  DNPS_PLM_SPECIES=$DNPS_PLM_SPECIES"
   echo "================================================"
   DNPS_SPECIES="$sp" \
-    "$PYTHON_BIN" dnps_hybrid/inference.py auto \
+    "$PYTHON_BIN" peptide_priors/inference.py auto \
       --dataset NINE_SPECIES_DATASET --use-plm true
   echo "[$sp] done"
   echo

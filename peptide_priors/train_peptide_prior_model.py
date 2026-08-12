@@ -5,8 +5,8 @@ from contextlib import nullcontext
 import wandb
 import torch
 import pickle
-from dnps_hybrid.model import GPTConfig, GPT
-from dnps_hybrid import const
+from peptide_priors.model import GPTConfig, GPT
+from peptide_priors import const
 import torch._functorch.config
 
 tokens_per_iter = const.PLM_BATCH_SIZE * const.PLM_BLOCK_SIZE

@@ -18,14 +18,14 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from dnps_hybrid.metrics import (
+from peptide_priors.metrics import (
     _normalize_to_massivekb,
     _expand_masses,
     evaluate,
     MASSIVEKB_MASSES,
     load_mztab_with_mgf,
 )
-from dnps_hybrid.const import (
+from peptide_priors.const import (
     COLOR_CASANOVO as COLOR_DNPS,
     COLOR_HISTOGRAM_GRAY,
     COLOR_PP as COLOR_HYBRID,

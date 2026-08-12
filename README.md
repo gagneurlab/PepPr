@@ -26,8 +26,8 @@ cd ..
 ### Integration patches
 
 The two patches applied in the install step above add the fusion hooks to the
-model submodules. Both depend only on `dnps_hybrid` being importable
-(`from dnps_hybrid.model import load_plm_model, load_fusion_model`).
+model submodules. Both depend only on `peptide_priors` being importable
+(`from peptide_priors.model import load_plm_model, load_fusion_model`).
 
 `casanovo_integration.patch` (Casanovo v5) adds:
 
@@ -105,7 +105,7 @@ distribution uses leading numeric mass shifts (for example
 `SEQ=+43.006PEPTIDE`), convert it before inference:
 
 ```bash
-python dnps_hybrid/prepare_data.py convert_proforma \
+python peptide_priors/prepare_data.py convert_proforma \
     "/path/to/downloaded/species/*.mgf" \
     "/path/to/proforma/species"
 ```
@@ -139,11 +139,11 @@ Generate the pepLM training corpus (in-silico digest of the FASTA file →
 
 ```bash
 # Build training data for the species' proteome.
-DNPS_SPECIES=human python dnps_hybrid/prepare_data.py
+DNPS_SPECIES=human python peptide_priors/prepare_data.py
 
 # Train the pepLM (writes the checkpoint under models/; override with
 # DNPS_PLM_CKPT_PATH). Hyperparameters live in const.py (PLM_* knobs).
-DNPS_SPECIES=human python dnps_hybrid/train_peptide_prior_model.py
+DNPS_SPECIES=human python peptide_priors/train_peptide_prior_model.py
 ```
 
 On SLURM these two steps are wrapped by `experiments/train.sh`:
@@ -152,7 +152,7 @@ On SLURM these two steps are wrapped by `experiments/train.sh`:
 
 To train a pepLM on something other than a UniProt proteome (e.g. an antibody
 germline repertoire), build the antibody germline corpus
-(`fastas/antibody_{human,mouse}.fasta`) with `dnps_hybrid/build_antibody_db.py`
+(`fastas/antibody_{human,mouse}.fasta`) with `peptide_priors/build_antibody_db.py`
 (the clean V-REGION + J·C germline corpus), add it to `SPECIES` in `const.py`,
 and run the two commands above.
 
@@ -166,12 +166,12 @@ assigns to the ground-truth peptides of the archived MassIVE-KB corpus.
 # (a) Generate fusion training tensors: Casanovo teacher logits + pepLM teacher
 #     logits over the training corpus (MassIVE-KB by default). This runs the
 #     patched Casanovo to dump teacher scores, then assembles the fusion inputs.
-DNPS_SPECIES=human python dnps_hybrid/prepare_data.py
+DNPS_SPECIES=human python peptide_priors/prepare_data.py
 
 # (b) Train the fusion head + the null (backbone-only) baseline.
 #     DNPS_FUSION_BACKBONE=casanovo (default) writes DNPS_FUSION_MODEL_PATH and
 #     DNPS_NULL_MODEL_PATH.
-DNPS_FUSION_BACKBONE=casanovo python dnps_hybrid/train_fusion_head.py
+DNPS_FUSION_BACKBONE=casanovo python peptide_priors/train_fusion_head.py
 ```
 
 On SLURM: `experiments/train.sh fusion` (Casanovo head) or
@@ -199,7 +199,7 @@ casanovo sequence \
 
 `--use_plm false` reproduces the plain Casanovo baseline. The full evaluation
 pipeline (both arms over all benchmark datasets) is orchestrated by
-`dnps_hybrid/inference.py auto`; `experiments/fig2/run_nine_species_inference.slurm` is the
+`peptide_priors/inference.py auto`; `experiments/fig2/run_nine_species_inference.slurm` is the
 SLURM entry point for the nine-species benchmark (`same`/`cross` arms), and
 `experiments/fig3/run_kol_eval.sh` for the Kingdoms-of-Life generalization sweep.
 
@@ -232,7 +232,7 @@ MGFs are already included in the archive.
 
 ## Files
 
-All maintained data paths are defined in `dnps_hybrid/const.py` relative to
+All maintained data paths are defined in `peptide_priors/const.py` relative to
 `DNPS_DATA_PATH`. The archive intentionally excludes vendor RAW files,
 unannotated or pre-ProForma MGFs, mzML files, teacher-score tensors, Lance and
 FragPipe workspaces, generated configs, plotting caches, and scheduler logs.

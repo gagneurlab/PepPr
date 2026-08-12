@@ -17,7 +17,6 @@ Reads the precomputed panelA_curves.npz (build_panelA_data.py).
 Run: python experiments/fig3/plot_panelA_supp.py
 """
 import os
-os.environ.setdefault("DNPS_DATA_PATH", "/s/project/denovo-prosit/SamKhan/dnps_hybrid_zenodo")
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -25,7 +24,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from dnps_hybrid.const import COLOR_GREEN, PROTEOMETOOLS_SAAV_DIR, PROJECT_ROOT
+from peptide_priors.const import COLOR_GREEN, PROTEOMETOOLS_SAAV_DIR, PROJECT_ROOT
 
 NPZ = os.path.join(PROTEOMETOOLS_SAAV_DIR, "panelA_curves.npz")
 

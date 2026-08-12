@@ -39,13 +39,13 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(_HERE)))
 
 from sklearn.metrics import auc
-from dnps_hybrid.metrics import (
+from peptide_priors.metrics import (
     _normalize_to_massivekb, evaluate, MASSIVEKB_MASSES, load_mztab_with_mgf,
     _parse_ms_run_locations, count_mgf_spectra,
     plot_sequence_diff, plot_spectrum_on_ax, paired_median_delta_stats,
     annotate_missing_ion_gap, annotate_precursor_readout,
 )
-from dnps_hybrid.const import (
+from peptide_priors.const import (
     COLOR_CASANOVO as COLOR_DNPS,
     COLOR_DARK_GRAY,
     COLOR_GREEN,
@@ -265,7 +265,7 @@ EXAMPLE = dict(
     pp_pred ="LVVVGAGDVGK", pp_score=0.685,
     boundary_pos=None,
     precursor_mz=507.3039, precursor_charge=2,
-    true_sa=0.6925,   # Prosit_2020_intensity_HCD SA (see dnps_hybrid.sa_prosit)
+    true_sa=0.6925,   # Prosit_2020_intensity_HCD SA (see experiments.utils.sa_prosit)
 )
 
 

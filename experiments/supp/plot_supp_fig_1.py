@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(_HERE)))
-from dnps_hybrid.metrics import (
+from peptide_priors.metrics import (
     _normalize_to_massivekb,
     _expand_masses,
     evaluate,
@@ -38,7 +38,7 @@ from dnps_hybrid.metrics import (
     NINE_SPECIES_TITLE_FONTSIZE,
     NINE_SPECIES_COLOR_DNPS, NINE_SPECIES_COLOR_PP,
 )
-from dnps_hybrid.const import (
+from peptide_priors.const import (
     COLOR_HISTOGRAM_GRAY,
     COLOR_TEXT_GRAY,
     PROJECT_ROOT,

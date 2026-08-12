@@ -4,13 +4,13 @@
 Usage:
     python run_benchmark.py <species>     # e.g. human, mouse, yeast, ...
 
-Species names and their result run-names are defined in dnps_hybrid.const.SPECIES.
+Species names and their result run-names are defined in peptide_priors.const.SPECIES.
 """
 import argparse
 
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from dnps_hybrid.const import (PROJECT_ROOT, SPECIES, nine_species_benchmark_dir,
+from peptide_priors.const import (PROJECT_ROOT, SPECIES, nine_species_benchmark_dir,
                                result_run_path)
 from powernovo.run import run_inference
 

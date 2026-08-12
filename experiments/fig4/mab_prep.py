@@ -24,7 +24,7 @@ import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from dnps_hybrid.const import DATA_PATH
+from peptide_priors.const import DATA_PATH
 from nontryp_registry import RUNS, NonTrypRun
 
 BESLIC_DIR = os.path.join(DATA_PATH, "beslic_mab")

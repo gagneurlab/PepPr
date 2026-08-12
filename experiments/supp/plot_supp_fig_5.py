@@ -16,18 +16,18 @@ import sys
 
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from dnps_hybrid import const
+from peptide_priors import const
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 
-from dnps_hybrid.metrics import (
+from peptide_priors.metrics import (
     MASSIVEKB_MASSES, _normalize_to_massivekb, _expand_masses,
     load_mztab_with_mgf, evaluate,
 )
-from dnps_hybrid.antibody_utils import (
+from experiments.fig4.antibody_utils import (
     ARM_STYLE,
     MAB_SPECS,
     XANOVO_PROTEASES,

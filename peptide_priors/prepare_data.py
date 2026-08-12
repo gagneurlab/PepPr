@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import torch
 from Bio import SeqIO
-from dnps_hybrid import const
+from peptide_priors import const
 from typing import Optional, Tuple, TextIO
 from collections import defaultdict
 from tqdm import tqdm

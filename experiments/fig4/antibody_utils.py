@@ -5,8 +5,10 @@ from __future__ import annotations
 import glob
 import os
 import re
+import sys
 
-from dnps_hybrid import const
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
+from peptide_priors import const
 
 
 ARM_STYLE = {

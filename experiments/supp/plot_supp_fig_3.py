@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(_HERE)))
-from dnps_hybrid.metrics import (
+from peptide_priors.metrics import (
     NINE_SPECIES_ORDER, species_label,
     NINE_SPECIES_NCOLS, NINE_SPECIES_NROWS, NINE_SPECIES_PANEL_INCHES,
     NINE_SPECIES_LINE_WIDTH, NINE_SPECIES_TICK_FONTSIZE,
@@ -28,7 +28,7 @@ from dnps_hybrid.metrics import (
     NINE_SPECIES_COLOR_DNPS, NINE_SPECIES_COLOR_PP,
     count_mgf_spectra,
 )
-from dnps_hybrid.const import PROJECT_ROOT, result_run_path
+from peptide_priors.const import PROJECT_ROOT, result_run_path
 from sklearn.metrics import auc
 
 # Map 9-species keys to their results directory (for the mztab → MGF spectra

@@ -28,6 +28,12 @@ MAINTAINED_ROOT_FILES = (
     "experiments/fig4/run_mab.sh",
     "experiments/fig4/mab_prep.py",
     "experiments/fig4/nontryp_registry.py",
+    "experiments/fig4/antibody_utils.py",
+    "experiments/fig4/assembly.py",
+    "experiments/fig4/build_antibody_db.py",
+    "experiments/fig4/build_dmo_curves.py",
+    "experiments/fig3/build_panelA_data.py",
+    "experiments/utils/sa_prosit.py",
 )
 
 MAINTAINED_SCRIPT_GLOBS = (
@@ -37,7 +43,7 @@ MAINTAINED_SCRIPT_GLOBS = (
 
 
 def maintained_paths() -> list[Path]:
-    paths = list((REPO_ROOT / "dnps_hybrid").glob("*.py"))
+    paths = list((REPO_ROOT / "peptide_priors").glob("*.py"))
     paths.extend(REPO_ROOT / name for name in MAINTAINED_ROOT_FILES)
     for pattern in MAINTAINED_SCRIPT_GLOBS:
         paths.extend(REPO_ROOT.glob(pattern))

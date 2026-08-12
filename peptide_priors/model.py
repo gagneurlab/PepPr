@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from dnps_hybrid import const
+from peptide_priors import const
 
 
 class LayerNorm(nn.Module):
@@ -233,7 +233,7 @@ class GPT(nn.Module):
             except ValueError as e:
                 raise RuntimeError(
                     f"Casanovo token {aa!r} (id={idx}) has no pepLM VOCAB "
-                    f"mapping (head={head!r}); extend dnps_hybrid.const.VOCAB "
+                    f"mapping (head={head!r}); extend peptide_priors.const.VOCAB "
                     "or special-case it here."
                 ) from e
         return table

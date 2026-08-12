@@ -22,7 +22,7 @@
 #                  ContraNovo fusion head (pepLM/species-independent).
 #   powernovo   -- PowerNovo (transformer + BERT rescoring), vanilla arm.
 #
-# Species names and result run-names are defined in dnps_hybrid.const.SPECIES.
+# Species names and result run-names are defined in peptide_priors.const.SPECIES.
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
@@ -46,8 +46,8 @@ activate_env() {  # activate_env <conda-env-name>
 case "$TOOL" in
   instanovo)
     activate_env "${INSTANOVO_ENV:-ka-instanovo}"
-    MGF_DIR=$("$PYTHON_BIN" -c "from dnps_hybrid.const import nine_species_benchmark_dir as d; print(d('$SP'))")
-    OUT_DIR=$("$PYTHON_BIN" -c "from dnps_hybrid.const import SPECIES, result_run_path as r; print(r(SPECIES['$SP']['run_name']))")/instanovo
+    MGF_DIR=$("$PYTHON_BIN" -c "from peptide_priors.const import nine_species_benchmark_dir as d; print(d('$SP'))")
+    OUT_DIR=$("$PYTHON_BIN" -c "from peptide_priors.const import SPECIES, result_run_path as r; print(r(SPECIES['$SP']['run_name']))")/instanovo
     mkdir -p "$OUT_DIR"
     for mgf in "$MGF_DIR"/*.mgf; do
       base=$(basename "$mgf" .mgf)
@@ -72,7 +72,7 @@ case "$TOOL" in
     ls -lh "$DNPS_CONTRANOVO_FUSION_MODEL_PATH" "$DNPS_CONTRANOVO_NULL_MODEL_PATH"
     activate_env "${DNPS_CONDA_ENV:-khsam}"
     echo "=== ContraNovo +/- pepLM for species: $SP (asymbnln+swap50 fusion head) ==="
-    "$PYTHON_BIN" dnps_hybrid/inference.py contranovo
+    "$PYTHON_BIN" peptide_priors/inference.py contranovo
     ;;
 
   powernovo)
@@ -86,7 +86,7 @@ case "$TOOL" in
     # and not a submodule). Run it from its own repository, then place its
     # per-species output where plot_benchmark reads it (const.SMSNET_ROOT):
     #   ${DNPS_SMSNET_ROOT:-<archive>/results/baselines/smsnet}/<species>_inputs_output
-    root=$("$PYTHON_BIN" -c "from dnps_hybrid.const import SMSNET_ROOT; print(SMSNET_ROOT)")
+    root=$("$PYTHON_BIN" -c "from peptide_priors.const import SMSNET_ROOT; print(SMSNET_ROOT)")
     echo "SMSNet is an external tool and is not driven from this repo." >&2
     echo "Run it from its own repository, then place its output at:" >&2
     echo "  $root/${SP}_inputs_output" >&2

@@ -31,7 +31,7 @@ import matplotlib.patheffects as patheffects
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(_HERE)))
-from dnps_hybrid.metrics import (
+from peptide_priors.metrics import (
     MASSIVEKB_MASSES, _normalize_to_massivekb, load_mztab_with_mgf,
     NINE_SPECIES_ORDER, species_label,
     NINE_SPECIES_NCOLS, NINE_SPECIES_PANEL_INCHES,
@@ -40,7 +40,7 @@ from dnps_hybrid.metrics import (
     NINE_SPECIES_TITLE_FONTSIZE,
     NINE_SPECIES_COLOR_DNPS, NINE_SPECIES_COLOR_PP,
 )
-from dnps_hybrid.const import (
+from peptide_priors.const import (
     COLOR_CASANOVO,
     COLOR_HISTOGRAM_GRAY,
     COLOR_PEACH,
@@ -371,7 +371,7 @@ def load_species(species, dirname, rng):
     # Peptides carrying mods Prosit doesn't recognise (deamidation, TMT, …)
     # return NaN and are excluded downstream.
     print(f"  Computing Prosit SA for {len(merged):,} PSMs…", file=sys.stderr)
-    from dnps_hybrid.sa_prosit import compute_sa_for_psms
+    from experiments.utils.sa_prosit import compute_sa_for_psms
 
     peptides = merged["true_seq"].tolist()
     charges, mz_obs_list, int_obs_list = [], [], []

@@ -9,13 +9,12 @@ Main Panel A: Casanovo, Casanovo+PepPr, and the MSFragger DMO site-localized cur
 the DMO peptide-level (localization-agnostic) curve, and Casanovo with adjacent-swap leniency.
 """
 import os, sys, re
-os.environ.setdefault("DNPS_DATA_PATH", "/s/project/denovo-prosit/SamKhan/dnps_hybrid_zenodo")
 import numpy as np
-sys.path.insert(0, "/data/nasif12/home_if12/khsam/dnps_hybrid")
-from dnps_hybrid.metrics import (load_mztab_with_mgf, _normalize_to_massivekb, evaluate,
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
+from peptide_priors.metrics import (load_mztab_with_mgf, _normalize_to_massivekb, evaluate,
                                  MASSIVEKB_MASSES, count_mgf_spectra)
-from dnps_hybrid.const import PROTEOMETOOLS_SAAV_DIR, result_run_path
-import dnps_hybrid.build_dmo_curves as bd
+from peptide_priors.const import PROTEOMETOOLS_SAAV_DIR, result_run_path
+import experiments.fig4.build_dmo_curves as bd
 
 _RES = result_run_path("casanovo")
 DNPS = os.path.join(_RES, "proteometools_saav_dnps.mztab")

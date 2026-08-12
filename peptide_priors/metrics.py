@@ -7,7 +7,7 @@ import torch
 from sklearn.metrics import auc
 import matplotlib.pyplot as plt
 import pandas as pd
-from dnps_hybrid import const
+from peptide_priors import const
 from pyteomics import mztab
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'casanovo'))

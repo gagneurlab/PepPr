@@ -20,11 +20,11 @@ from sklearn.metrics import auc
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(_HERE)))
 
-from dnps_hybrid.metrics import (
+from peptide_priors.metrics import (
     MASSIVEKB_MASSES, _normalize_to_massivekb, _expand_masses,
     load_mztab_with_mgf, evaluate, average_precision,
 )
-from dnps_hybrid.const import (
+from peptide_priors.const import (
     COLOR_CASANOVO as COLOR_VAN,
     COLOR_PP,
     PROJECT_ROOT,

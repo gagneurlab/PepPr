@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from dnps_hybrid.metrics import (
+from peptide_priors.metrics import (
     _normalize_to_massivekb,
     _expand_masses,
     evaluate,
@@ -23,7 +23,7 @@ from dnps_hybrid.metrics import (
     _parse_ms_run_locations,
     _SPECTRA_REF_RE,
 )
-from dnps_hybrid.const import (
+from peptide_priors.const import (
     COLOR_CASANOVO,
     COLOR_PP,
     SMSNET_ROOT,

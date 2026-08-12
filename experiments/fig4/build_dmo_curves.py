@@ -10,10 +10,10 @@ Coverage denom = # GT spectra.
 """
 import os, re, glob, sys
 import numpy as np
-sys.path.insert(0, "/data/nasif12/home_if12/khsam/dnps_hybrid")
-from dnps_hybrid.metrics import _normalize_to_massivekb, MASSIVEKB_MASSES
-from dnps_hybrid.metrics import peptide_match_mass  # noqa
-from dnps_hybrid.const import PROTEOMETOOLS_SAAV_DIR
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
+from peptide_priors.metrics import _normalize_to_massivekb, MASSIVEKB_MASSES
+from peptide_priors.metrics import peptide_match_mass  # noqa
+from peptide_priors.const import PROTEOMETOOLS_SAAV_DIR
 from casanovo.denovo import evaluate  # noqa
 
 DMO = os.path.join(PROTEOMETOOLS_SAAV_DIR, "msfragger_dmo")

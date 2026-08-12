@@ -22,11 +22,14 @@ import os
 import re
 from typing import Iterable, Optional
 
+import sys
+
 import numpy as np
 import pandas as pd
 from depthcharge.primitives import Peptide as _DepthchargePeptide
 
-from dnps_hybrid.const import PROJECT_ROOT
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
+from peptide_priors.const import PROJECT_ROOT
 
 CACHE_PATH = os.path.join(PROJECT_ROOT, "prosit_sa_cache.parquet")
 
