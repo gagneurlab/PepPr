@@ -20,7 +20,7 @@ from sklearn.metrics import auc
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(_HERE)))
 
-from peptide_priors.metrics import (
+from experiments.utils.evaluation import (
     MASSIVEKB_MASSES, _normalize_to_massivekb, _expand_masses,
     load_mztab_with_mgf, evaluate, average_precision,
 )

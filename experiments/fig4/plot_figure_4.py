@@ -27,7 +27,7 @@ from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 
 # Region helpers remain in experiments/; Figure 4 helpers are package modules.
 
-from peptide_priors.metrics import (
+from experiments.utils.evaluation import (
     _normalize_to_massivekb, _expand_masses, evaluate, MASSIVEKB_MASSES,
     load_mztab_with_mgf, plot_sequence_diff, plot_spectrum_on_ax, _AA_RE,
     annotate_missing_ion_gap, _ion_mz, _B_ION_COLOR,
@@ -460,7 +460,7 @@ def collect_psm_rows(mabs, ref_by_mab):
         sys.exit("No PSMs collected — all mztabs missing?")
     return pd.concat(rows, ignore_index=True)
 
-# plot_sequence_diff and plot_spectrum_on_ax now live in peptide_priors.metrics
+# plot_sequence_diff and plot_spectrum_on_ax now live in experiments.utils.evaluation
 # — imported at the top of this file.
 
 def _v_portion_for_row(row, ref_by_mab):
@@ -527,7 +527,7 @@ def plot_all_panels(dat, ref_by_mab, out_path):
         ns = [len(dat[(dat["series"] == s) & (dat["category"] == cat)])
               for s in ARM_SERIES]
         n_per_cat.append(max(ns) if ns else 0)
-    from peptide_priors.metrics import wilson_ci
+    from experiments.utils.evaluation import wilson_ci
     for si, series in enumerate(ARM_SERIES):
         precs, err_lo, err_hi = [], [], []
         for cat in CATEGORIES:
@@ -591,7 +591,7 @@ def plot_all_panels(dat, ref_by_mab, out_path):
             for p, off in zip(group, offsets):
                 x_by_protease[p] = L + off
 
-    from peptide_priors.metrics import wilson_ci
+    from experiments.utils.evaluation import wilson_ci
     # Bubble area scales sqrt with N so the visual area is roughly linear in N
     # without letting pepsin's PSMs dwarf trypsin's too aggressively.
     def _bubble_size(n):

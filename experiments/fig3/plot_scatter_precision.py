@@ -30,7 +30,7 @@ plt.rcParams.update({
 })
 from sklearn.metrics import auc
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peptide_priors.metrics import (
+from experiments.utils.evaluation import (
     _normalize_to_massivekb, evaluate, MASSIVEKB_MASSES, load_mztab_with_mgf,
 )
 from peptide_priors.const import (

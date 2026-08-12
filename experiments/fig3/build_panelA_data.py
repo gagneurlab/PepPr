@@ -11,7 +11,7 @@ the DMO peptide-level (localization-agnostic) curve, and Casanovo with adjacent-
 import os, sys, re
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peptide_priors.metrics import (load_mztab_with_mgf, _normalize_to_massivekb, evaluate,
+from experiments.utils.evaluation import (load_mztab_with_mgf, _normalize_to_massivekb, evaluate,
                                  MASSIVEKB_MASSES, count_mgf_spectra)
 from peptide_priors.const import PROTEOMETOOLS_SAAV_DIR, result_run_path
 import experiments.fig4.build_dmo_curves as bd

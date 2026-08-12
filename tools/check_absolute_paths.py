@@ -34,6 +34,8 @@ MAINTAINED_ROOT_FILES = (
     "experiments/fig4/build_dmo_curves.py",
     "experiments/fig3/build_panelA_data.py",
     "experiments/utils/sa_prosit.py",
+    "experiments/utils/evaluation.py",
+    "experiments/utils/plot_spectrum.py",
 )
 
 MAINTAINED_SCRIPT_GLOBS = (

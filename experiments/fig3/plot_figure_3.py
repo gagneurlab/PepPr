@@ -39,7 +39,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(_HERE)))
 
 from sklearn.metrics import auc
-from peptide_priors.metrics import (
+from experiments.utils.evaluation import (
     _normalize_to_massivekb, evaluate, MASSIVEKB_MASSES, load_mztab_with_mgf,
     _parse_ms_run_locations, count_mgf_spectra,
     plot_sequence_diff, plot_spectrum_on_ax, paired_median_delta_stats,

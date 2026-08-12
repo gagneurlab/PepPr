@@ -23,7 +23,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 
-from peptide_priors.metrics import (
+from experiments.utils.evaluation import (
     MASSIVEKB_MASSES, _normalize_to_massivekb, _expand_masses,
     load_mztab_with_mgf, evaluate,
 )

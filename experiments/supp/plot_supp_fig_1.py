@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(_HERE)))
-from peptide_priors.metrics import (
+from experiments.utils.evaluation import (
     _normalize_to_massivekb,
     _expand_masses,
     evaluate,

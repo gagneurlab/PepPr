@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(_HERE)))
-from peptide_priors.metrics import (
+from experiments.utils.evaluation import (
     NINE_SPECIES_ORDER, species_label,
     NINE_SPECIES_NCOLS, NINE_SPECIES_NROWS, NINE_SPECIES_PANEL_INCHES,
     NINE_SPECIES_LINE_WIDTH, NINE_SPECIES_TICK_FONTSIZE,

@@ -45,7 +45,7 @@ from peptide_priors.const import (  # noqa: E402
     MODELS_DIR,
     SPECIES as _PLM_SPECIES_CFG,
 )
-from peptide_priors.metrics import (  # noqa: E402
+from experiments.utils.evaluation import (  # noqa: E402
     MASSIVEKB_MASSES,
     _expand_masses,
     _normalize_to_massivekb,

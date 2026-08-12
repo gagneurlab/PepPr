@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from peptide_priors.metrics import (
+from experiments.utils.evaluation import (
     plot_sequence_diff, plot_spectrum_on_ax,
     annotate_missing_ion_gap, annotate_precursor_readout,
 )

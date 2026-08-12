@@ -18,7 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from peptide_priors.metrics import (
+from experiments.utils.evaluation import (
     _normalize_to_massivekb,
     _expand_masses,
     evaluate,

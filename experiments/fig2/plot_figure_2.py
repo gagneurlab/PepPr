@@ -37,7 +37,7 @@ from sklearn.metrics import auc
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(_HERE)))
 
-from peptide_priors.metrics import (
+from experiments.utils.evaluation import (
     plot_sequence_diff, plot_spectrum_on_ax, paired_median_delta_stats,
     annotate_missing_ion_gap, annotate_precursor_readout,
 )
@@ -275,7 +275,7 @@ def plot_panel_C(ax_line, ax_hist):
     if mouse_df is None or len(mouse_df) == 0:
         ax_line.text(0.5, 0.5, "(no SA data)", ha="center", va="center",
                      transform=ax_line.transAxes); return
-    from peptide_priors.metrics import wilson_ci
+    from experiments.utils.evaluation import wilson_ci
     bins, prec_c, prec_p, ns = [], [], [], []
     cas_err_lo, cas_err_hi, pp_err_lo, pp_err_hi = [], [], [], []
     for label, lo, hi in SA_BINS:
@@ -331,7 +331,7 @@ def plot_panel_C(ax_line, ax_hist):
 def plot_panel_D(ax_line, ax_hist):
     with open(os.path.join(PROJECT_ROOT, "precision_by_length_cache.pkl"), "rb") as f:
         L = pickle.load(f)
-    from peptide_priors.metrics import wilson_ci
+    from experiments.utils.evaluation import wilson_ci
     mouse = L["mouse"]
     bins = [b[0] for b in mouse["dnps"]]
     prec_c = [b[1] for b in mouse["dnps"]]

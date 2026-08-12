@@ -31,7 +31,7 @@ import matplotlib.patheffects as patheffects
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(_HERE)))
-from peptide_priors.metrics import (
+from experiments.utils.evaluation import (
     MASSIVEKB_MASSES, _normalize_to_massivekb, load_mztab_with_mgf,
     NINE_SPECIES_ORDER, species_label,
     NINE_SPECIES_NCOLS, NINE_SPECIES_PANEL_INCHES,
