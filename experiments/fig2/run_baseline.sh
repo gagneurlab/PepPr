@@ -82,15 +82,29 @@ case "$TOOL" in
     ;;
 
   smsnet)
-    # SMSNet is an external TensorFlow tool (not pip-installable like the others,
-    # and not a submodule). Run it from its own repository, then place its
-    # per-species output where plot_benchmark reads it (const.SMSNET_ROOT):
-    #   ${DNPS_SMSNET_ROOT:-<archive>/results/baselines/smsnet}/<species>_inputs_output
+    # SMSNet is an external TensorFlow tool (not pip-installable, not a submodule),
+    # so it is not driven from this repo. The archived baseline
+    # (results/baselines/smsnet/{human,mouse}_inputs_output, read by plot_benchmark
+    # via const.SMSNET_ROOT) was generated as follows, for reproducibility:
+    #
+    #   repo:  github.com/cmb-chula/SMSNet @ facfaf441d0e   (+ local run_*_9s.sh drivers)
+    #   env:   conda env khsam_smsnet
+    #   model: models/smsnet          (the standard model, not smsnet_phospho)
+    #
+    #   # from the SMSNet checkout, once per nine-species ProForma MGF:
+    #   python run.py --model_dir models/smsnet \
+    #       --inference_input_file <input>.mgf --rescore
+    #
+    #   # inputs (staged locally next to the run, one MGF at a time):
+    #   #   human: $DNPS_DATA_PATH/casanovo/nine_species_proforma/*.mgf
+    #   #   mouse: $DNPS_DATA_PATH/mus_musculus/nine_species_proforma/*.mgf
+    #   # --rescore emits the <base>_rescore score files load_smsnet() expects.
+    #   # SMSNet writes <inputs>_output/ next to the staged inputs; that directory
+    #   # is what lands at $SMSNET_ROOT/<species>_inputs_output.
     root=$("$PYTHON_BIN" -c "from peptide_priors.const import SMSNET_ROOT; print(SMSNET_ROOT)")
-    echo "SMSNet is an external tool and is not driven from this repo." >&2
-    echo "Run it from its own repository, then place its output at:" >&2
-    echo "  $root/${SP}_inputs_output" >&2
-    echo "plot_benchmark.py reads it from there (override with DNPS_SMSNET_ROOT)." >&2
+    echo "SMSNet is external (github.com/cmb-chula/SMSNet @ facfaf441d0e); see this" >&2
+    echo "case's header for the exact command. Place its output at:" >&2
+    echo "  $root/${SP}_inputs_output   (override root with DNPS_SMSNET_ROOT)" >&2
     exit 3 ;;
 
   *)
