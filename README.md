@@ -146,15 +146,15 @@ DNPS_SPECIES=human python dnps_hybrid/prepare_data.py
 DNPS_SPECIES=human python dnps_hybrid/train_peptide_prior_model.py
 ```
 
-On SLURM these two steps are wrapped by `scripts/train.sh`:
+On SLURM these two steps are wrapped by `experiments/train.sh`:
 `train.sh plm <species>` (proteome) or `train.sh antibody-plm <human|mouse>`
 (germline antibody pepLM, sliding-window).
 
 To train a pepLM on something other than a UniProt proteome (e.g. an antibody
-germline repertoire), build `antibody/antibody_{human,mouse}.fasta` with
-`dnps_hybrid/build_antibody_db.py` (which produces the clean V-REGION + J·C
-germline corpus), add it to `SPECIES` in `const.py`, and run the two commands
-above.
+germline repertoire), build the antibody germline corpus
+(`fastas/antibody_{human,mouse}.fasta`) with `dnps_hybrid/build_antibody_db.py`
+(the clean V-REGION + J·C germline corpus), add it to `SPECIES` in `const.py`,
+and run the two commands above.
 
 ## 2. Train a fusion head (Casanovo example)
 
@@ -174,8 +174,8 @@ DNPS_SPECIES=human python dnps_hybrid/prepare_data.py
 DNPS_FUSION_BACKBONE=casanovo python dnps_hybrid/train_fusion_head.py
 ```
 
-On SLURM: `scripts/train.sh fusion` (Casanovo head) or
-`scripts/train.sh contranovo-fusion` (ContraNovo baseline head).
+On SLURM: `experiments/train.sh fusion` (Casanovo head) or
+`experiments/train.sh contranovo-fusion` (ContraNovo baseline head).
 
 The fusion head is **pepLM-independent** by design: once trained it can be reused
 with any pepLM of the same backbone/vocab — you do not retrain it per species.
@@ -199,9 +199,9 @@ casanovo sequence \
 
 `--use_plm false` reproduces the plain Casanovo baseline. The full evaluation
 pipeline (both arms over all benchmark datasets) is orchestrated by
-`dnps_hybrid/inference.py auto`; `scripts/run_nine_species_inference.slurm` is the
+`dnps_hybrid/inference.py auto`; `experiments/fig2/run_nine_species_inference.slurm` is the
 SLURM entry point for the nine-species benchmark (`same`/`cross` arms), and
-`scripts/run_kol_eval.sh` for the Kingdoms-of-Life generalization sweep.
+`experiments/fig3/run_kol_eval.sh` for the Kingdoms-of-Life generalization sweep.
 
 ## 4. Reproduce the paper figures
 
@@ -210,20 +210,20 @@ small metadata tables. Regenerate derived plotting summaries before composing
 the figures:
 
 ```bash
-python scripts/plot_scatter_precision.py
-python scripts/plot_supp_fig_1.py
-python scripts/plot_supp_fig_2.py
-python scripts/plot_benchmark.py --species mouse
-python scripts/plot_kol_overlap_vs_pp_gain.py
+python experiments/fig3/plot_scatter_precision.py
+python experiments/supp/plot_supp_fig_1.py
+python experiments/supp/plot_supp_fig_2.py
+python experiments/fig2/plot_benchmark.py --species mouse
+python experiments/fig3/plot_kol_overlap_vs_pp_gain.py
 
-python scripts/plot_figure_2.py      # nine-species benchmark
-python scripts/plot_figure_3.py      # cross-species, SAAV, KoL generalization
-python scripts/plot_figure_4.py      # mAb assembly (V+C)
-for script in scripts/plot_supp_fig_*.py; do python "$script"; done
+python experiments/fig2/plot_figure_2.py      # nine-species benchmark
+python experiments/fig3/plot_figure_3.py      # cross-species, SAAV, KoL generalization
+python experiments/fig4/plot_figure_4.py      # mAb assembly (V+C)
+for script in experiments/supp/plot_supp_fig_*.py; do python "$script"; done
 ```
 
 Benchmark baselines (PowerNovo, ContraNovo, InstaNovo) are launched via
-`scripts/run_baseline.sh <tool> <species>` and compared in `scripts/plot_benchmark.py`.
+`experiments/fig2/run_baseline.sh <tool> <species>` and compared in `experiments/fig2/plot_benchmark.py`.
 
 The spectral-angle summary uses Koina/Prosit when it is regenerated and
 therefore requires network access to the Koina service. ThermoRawFileParser is

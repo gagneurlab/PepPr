@@ -18,20 +18,21 @@ MAINTAINED_ROOT_FILES = (
     "casanovo/casanovo/config.yaml",
     "casanovo_integration.patch",
     "contranovo_integration.patch",
-    "antibody/nontryp_registry.py",
-    "antibody/mab_prep.py",
-    "antibody/run_mab.sh",
-    "scripts/eval_kingdoms_pp.py",
-    "scripts/run_benchmark.py",
-    "scripts/run_inference.slurm",
-    "scripts/run_baseline.sh",
-    "scripts/run_kol_eval.sh",
-    "scripts/run_nine_species_inference.slurm",
-    "scripts/train.sh",
+    "experiments/train.sh",
+    "experiments/fig2/run_nine_species_inference.slurm",
+    "experiments/fig2/run_baseline.sh",
+    "experiments/fig2/run_benchmark.py",
+    "experiments/fig3/run_inference.slurm",
+    "experiments/fig3/run_kol_eval.sh",
+    "experiments/fig3/eval_kingdoms_pp.py",
+    "experiments/fig4/run_mab.sh",
+    "experiments/fig4/mab_prep.py",
+    "experiments/fig4/nontryp_registry.py",
 )
 
 MAINTAINED_SCRIPT_GLOBS = (
-    "scripts/plot_*.py",
+    "experiments/**/plot_*.py",
+    "experiments/plot_*.py",
 )
 
 
