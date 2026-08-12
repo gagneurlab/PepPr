@@ -23,9 +23,13 @@ git apply ../contranovo_integration.patch
 cd ..
 ```
 
-### The Casanovo integration patch
+### Integration patches
 
-`casanovo_integration.patch` adds the fusion hooks to the Casanovo v5 submodule:
+The two patches applied in the install step above add the fusion hooks to the
+model submodules. Both depend only on `dnps_hybrid` being importable
+(`from dnps_hybrid.model import load_plm_model, load_fusion_model`).
+
+`casanovo_integration.patch` (Casanovo v5) adds:
 
 - a `--use_plm` flag on `casanovo sequence` (`casanovo.py`),
 - pepLM + fusion-head loading and fusion re-scoring inside beam search
@@ -33,15 +37,12 @@ cd ..
 - teacher-score dumping and PSM/mzTab plumbing used to build fusion training data
 (`denovo/model_runner.py`, `data/psm.py`, `data/ms_io.py`).
 
-The patch depends only on `dnps_hybrid` being importable (`from dnps_hybrid.model import load_plm_model, load_fusion_model`). To adapt the fusion head to a
-**different DNPS backbone**, apply the analogous hooks to that model's beam search
-and point `DNPS_FUSION_BACKBONE` at it (see below).
+`contranovo_integration.patch` (ContraNovo) adds pepLM fusion during ContraNovo
+beam search, propagates the `--use_plm` option, and provides the prediction and
+teacher-forcing runner scripts used by the fusion pipeline.
 
-### The ContraNovo integration patch
-
-`contranovo_integration.patch` adds pepLM fusion during ContraNovo beam search,
-propagates the `--use_plm` option, and provides prediction and teacher-forcing
-runner scripts used by the fusion pipeline.
+To adapt the fusion head to a **different DNPS backbone**, apply the analogous
+hooks to that model's beam search and point `DNPS_FUSION_BACKBONE` at it (see below).
 
 ## Configuration
 
@@ -71,9 +72,6 @@ tar xzf dnps_hybrid_zenodo.tar.gz
 sha256sum dnps_hybrid_zenodo.tar.gz   # expect 589cd263…190091
 export DNPS_DATA_PATH="$PWD/dnps_hybrid_zenodo"
 ```
-
-> The nine-species MGF benchmark (~28 GB) is **not** bundled; obtain it separately
-> and set `DNPS_NINE_SPECIES_PATH` (see the archive's `ARCHIVE_README.md`).
 
 `DNPS_DATA_PATH` is required. The archive contains the final annotated inputs,
 checkpoints, and result tables used by the maintained workflows; no
@@ -149,8 +147,8 @@ DNPS_SPECIES=human python dnps_hybrid/train_peptide_prior_model.py
 ```
 
 On SLURM these two steps are wrapped by `scripts/train.sh`:
-`train.sh plm <species>` (proteome), `train.sh germline-plm <human|mouse>`
-(germline sliding-window), or `train.sh antibody-plm <human|mouse>`.
+`train.sh plm <species>` (proteome) or `train.sh antibody-plm <human|mouse>`
+(germline antibody pepLM, sliding-window).
 
 To train a pepLM on something other than a UniProt proteome (e.g. an antibody
 germline repertoire), build `antibody/antibody_{human,mouse}.fasta` with

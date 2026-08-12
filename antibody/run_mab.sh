@@ -160,7 +160,7 @@ PYEOF
     eval_mgf="$src_mgf"
   fi
 
-  local ckpt="${CASANOVO_CKPT:-$data/models/casanovo_v5_0_0.ckpt}"
+  local ckpt="${CASANOVO_CKPT:-https://github.com/Noble-Lab/casanovo/releases/download/v5.0.0/casanovo_v5_0_0.ckpt}"
   local job_tag="${tag}_${SLURM_JOB_ID:-$$}"
   local config="$res_dir/casanovo_config_${arm}_${job_tag}.yaml"
   sed "s|^lance_dir:.*|lance_dir: $res_dir/lance_${arm}_${job_tag}|" \
@@ -172,9 +172,9 @@ PYEOF
       out_tag="casanovo_${tag}_noplm_${job_tag}" ;;
     human_iso)
       use_plm=true
-      export DNPS_PLM_CKPT_PATH="$data/human_iso/plm_ckpt.pt"
-      export DNPS_FUSION_MODEL_PATH="$data/casanovo/fusion_model.pth"
-      export DNPS_NULL_MODEL_PATH="$data/casanovo/null_model.pth"
+      export DNPS_PLM_CKPT_PATH="$data/models/human_iso/plm_ckpt.pt"
+      export DNPS_FUSION_MODEL_PATH="$data/models/casanovo/fusion_model.pth"
+      export DNPS_NULL_MODEL_PATH="$data/models/casanovo/null_model.pth"
       out_tag="casanovo_${tag}_humaniso_plm_${job_tag}" ;;
     germline)
       use_plm=true
@@ -184,9 +184,10 @@ PYEOF
         *)                                 sp=mouse ;;
       esac
       export DNPS_PLM_DISTINGUISH_IL=0 DNPS_FUSION_OUTPUT_IL=0
-      export DNPS_PLM_CKPT_PATH="$data/germline_${sp}_clean/plm_ckpt.pt"
-      export DNPS_FUSION_MODEL_PATH="$data/casanovo/fusion_model_asymbnln.pth"
-      export DNPS_NULL_MODEL_PATH="$data/casanovo/null_model_asymbnln.pth"
+      # germline pepLM checkpoints were renamed to models/antibody_<sp>/ for the archive.
+      export DNPS_PLM_CKPT_PATH="$data/models/antibody_${sp}/plm_ckpt.pt"
+      export DNPS_FUSION_MODEL_PATH="$data/models/casanovo/fusion_model_asymbnln.pth"
+      export DNPS_NULL_MODEL_PATH="$data/models/casanovo/null_model_asymbnln.pth"
       out_tag="casanovo_${tag}_germline_${sp}_sw_clean_${job_tag}" ;;
     *) echo "unknown arm '$arm'" >&2; exit 2 ;;
   esac

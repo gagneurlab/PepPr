@@ -16,8 +16,7 @@
 #
 # Usage:
 #   sbatch scripts/train.sh plm <species>            # proteome pepLM (e.g. human, yeast, human_iso)
-#   sbatch scripts/train.sh germline-plm <human|mouse>   # germline sliding-window pepLM (v2)
-#   sbatch scripts/train.sh antibody-plm <human|mouse>   # antibody IMGT germline pepLM
+#   sbatch scripts/train.sh antibody-plm <human|mouse>   # germline antibody pepLM (sliding-window)
 #   sbatch scripts/train.sh fusion                   # Casanovo + pepLM fusion head (asymbnln, swap50)
 #   sbatch scripts/train.sh contranovo-fusion [mode] # ContraNovo fusion pipeline (default: train_fusion)
 #
@@ -36,7 +35,7 @@ fi
 set -eo pipefail
 cd "$REPO_ROOT"
 
-TARGET="${1:?usage: train.sh <plm|germline-plm|antibody-plm|fusion|contranovo-fusion> [args]}"
+TARGET="${1:?usage: train.sh <plm|antibody-plm|fusion|contranovo-fusion> [args]}"
 shift || true
 
 activate_env() { if declare -F conda >/dev/null; then conda activate "${DNPS_CONDA_ENV:-khsam}"; fi; }
@@ -69,21 +68,6 @@ case "$TARGET" in
     "$PYTHON_BIN" dnps_hybrid/train_peptide_prior_model.py
     ;;
 
-  germline-plm)
-    require_species "${1:-}"; SPECIES="germline_$1"
-    export DNPS_SPECIES="$SPECIES" DNPS_PLM_SPECIES="$SPECIES"
-    export DNPS_PLM_PROTEASES=sliding
-    export DNPS_PLM_BUFFER_SIZE=2000000
-    export DNPS_PLM_DATA_SUFFIX=_sw_v2
-    export DNPS_PLM_DISTINGUISH_IL=1
-    export DNPS_PLM_CKPT_PATH="$DNPS_DATA_PATH/$SPECIES/plm_ckpt_il_sw_v2.pt"
-    export DNPS_PLM_MAX_ITERS=100000
-    activate_env
-    gen_if_missing
-    "$PYTHON_BIN" dnps_hybrid/train_peptide_prior_model.py
-    ls -lh "$DNPS_PLM_CKPT_PATH"
-    ;;
-
   antibody-plm)
     require_species "${1:-}"; SPECIES="antibody_$1"
     export DNPS_PLM_DISTINGUISH_IL=0
@@ -105,13 +89,11 @@ case "$TARGET" in
     export DNPS_SPECIES=human DNPS_PLM_SPECIES=human
     export DNPS_FUSION_PLM_TOP2_SWAP_FRAC=0.50
     export DNPS_FUSION_EPOCHS="${DNPS_FUSION_EPOCHS:-16}"
-    export DNPS_FUSION_MODEL_PATH="$DNPS_DATA_PATH/casanovo/fusion_model_asymbnln.pth"
-    export DNPS_NULL_MODEL_PATH="$DNPS_DATA_PATH/casanovo/null_model_asymbnln.pth"
-    for f in casanovo_teacher_scores_train.pt casanovo_teacher_scores_test.pt \
-             plm_psm_teacher_scores_train.pt plm_psm_teacher_scores_test.pt \
-             fusion_y_train.pt fusion_y_test.pt; do
-      [[ -s "$DNPS_DATA_PATH/casanovo/$f" ]] || { echo "[fatal] missing teacher artifact: casanovo/$f" >&2; exit 2; }
-    done
+    export DNPS_FUSION_MODEL_PATH="$DNPS_DATA_PATH/models/casanovo/fusion_model_asymbnln.pth"
+    export DNPS_NULL_MODEL_PATH="$DNPS_DATA_PATH/models/casanovo/null_model_asymbnln.pth"
+    # Teacher tensors (Casanovo + pepLM logits, fusion targets) must be generated
+    # first via `python dnps_hybrid/prepare_data.py`; they are not in the archive.
+    # train_fusion_head.py reads them from their const-defined paths and errors if absent.
     activate_env
     "$PYTHON_BIN" dnps_hybrid/train_fusion_head.py
     ls -lh "$DNPS_FUSION_MODEL_PATH" "$DNPS_NULL_MODEL_PATH"
@@ -166,8 +148,8 @@ run(const.CONTRANOVO_PLM_PSM_X_TEST_PATH,  const.CONTRANOVO_PLM_PSM_TEACHER_SCOR
         ;;
       train_fusion)
         export DNPS_FUSION_BACKBONE=contranovo
-        export DNPS_CONTRANOVO_FUSION_MODEL_PATH="$SHARED_DIR/contranovo_fusion_asymbnln_swap50.pth"
-        export DNPS_CONTRANOVO_NULL_MODEL_PATH="$SHARED_DIR/contranovo_null_asymbnln_swap50.pth"
+        export DNPS_CONTRANOVO_FUSION_MODEL_PATH="$DNPS_DATA_PATH/models/casanovo/contranovo_fusion_model.pth"
+        export DNPS_CONTRANOVO_NULL_MODEL_PATH="$DNPS_DATA_PATH/models/casanovo/contranovo_null_model.pth"
         export DNPS_FUSION_PLM_TOP2_SWAP_FRAC=0.5 DNPS_FUSION_PLM_RAND_SWAP_FRAC=0.0 DNPS_FUSION_EPOCHS=16
         unset DNPS_FUSION_OUTPUT_IL || true
         activate_env
@@ -179,7 +161,7 @@ run(const.CONTRANOVO_PLM_PSM_X_TEST_PATH,  const.CONTRANOVO_PLM_PSM_TEACHER_SCOR
     ;;
 
   *)
-    echo "unknown target '$TARGET' (plm|germline-plm|antibody-plm|fusion|contranovo-fusion)" >&2
+    echo "unknown target '$TARGET' (plm|antibody-plm|fusion|contranovo-fusion)" >&2
     exit 2 ;;
 esac
 

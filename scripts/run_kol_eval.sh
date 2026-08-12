@@ -20,8 +20,8 @@
 #   sbatch run_kol_eval.sh mouse dog             # explicit species
 #
 # Reproduce the human_iso asymbnln 15-species generalization sweep:
-#   DNPS_FUSION_MODEL_PATH=$DNPS_DATA_PATH/human_iso_asymbnln/fusion_model.pth \
-#   DNPS_NULL_MODEL_PATH=$DNPS_DATA_PATH/human_iso_asymbnln/null_model.pth \
+#   DNPS_FUSION_MODEL_PATH=$DNPS_DATA_PATH/models/human_iso_asymbnln/fusion_model.pth \
+#   DNPS_NULL_MODEL_PATH=$DNPS_DATA_PATH/models/human_iso_asymbnln/null_model.pth \
 #   PLM_SPECIES=human_iso \
 #   KOL_OUT_DIR=$DNPS_DATA_PATH/kingdoms_of_life_eval_asymbnln \
 #   sbatch run_kol_eval.sh human mouse dog bos_tauros canaerohabidis_elegans \

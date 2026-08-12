@@ -65,10 +65,10 @@ case "$TOOL" in
     ;;
 
   contranovo)
-    SHARED_DIR=$DNPS_DATA_PATH/casanovo
+    SHARED_DIR=$DNPS_DATA_PATH/models/casanovo
     export DNPS_SPECIES=$SP
-    export DNPS_CONTRANOVO_FUSION_MODEL_PATH=$SHARED_DIR/contranovo_fusion_asymbnln_swap50.pth
-    export DNPS_CONTRANOVO_NULL_MODEL_PATH=$SHARED_DIR/contranovo_null_asymbnln_swap50.pth
+    export DNPS_CONTRANOVO_FUSION_MODEL_PATH=$SHARED_DIR/contranovo_fusion_model.pth
+    export DNPS_CONTRANOVO_NULL_MODEL_PATH=$SHARED_DIR/contranovo_null_model.pth
     ls -lh "$DNPS_CONTRANOVO_FUSION_MODEL_PATH" "$DNPS_CONTRANOVO_NULL_MODEL_PATH"
     activate_env "${DNPS_CONDA_ENV:-khsam}"
     echo "=== ContraNovo +/- pepLM for species: $SP (asymbnln+swap50 fusion head) ==="
