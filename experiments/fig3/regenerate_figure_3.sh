@@ -15,7 +15,7 @@ if [[ "$n_iso" -lt 10 ]]; then
 fi
 
 if [[ ! -s "$SAAV_MZTAB" ]]; then
-  echo "[fatal] missing $SAAV_MZTAB (submit experiments/fig3/run_inference.slurm PROTEOMETOOLS_SAAV_DATASET)" >&2
+  echo "[fatal] missing $SAAV_MZTAB (submit experiments/run_inference.slurm PROTEOMETOOLS_SAAV_DATASET)" >&2
   exit 2
 fi
 

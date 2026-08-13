@@ -26,7 +26,7 @@
 #   sbatch --array=0-3 experiments/fig3/run_inference.slurm PROTEOMETOOLS_SAAV_DATASET
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 : "${DNPS_DATA_PATH:?Set DNPS_DATA_PATH to the workflow data root}"
 export DNPS_DATA_PATH
 PYTHON_BIN="${PYTHON_BIN:-python}"

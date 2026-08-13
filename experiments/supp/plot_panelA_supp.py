@@ -13,24 +13,22 @@ ranked (de novo curves live in the main Figure 3 Panel A).
     ordered by PTM-Prophet best-localization probability instead of Percolator, showing
     the result's sensitivity to how the DB calls are ranked.
 
-Reads the precomputed panelA_curves.npz (build_panelA_data.py).
-Run: python experiments/fig3/plot_panelA_supp.py
+Uses the precomputed Panel A curves (experiments/fig3/panelA_curves.py).
+Run: python experiments/supp/plot_panelA_supp.py
 """
 import os
-import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peptide_priors.const import COLOR_GREEN, PROTEOMETOOLS_SAAV_DIR, PROJECT_ROOT
-
-NPZ = os.path.join(PROTEOMETOOLS_SAAV_DIR, "panelA_curves.npz")
+from experiments.fig3.panelA_curves import load_panelA_curves
+from peptide_priors.const import COLOR_GREEN, PROJECT_ROOT
 
 
 def plot_panelA_supp(ax):
-    d = np.load(NPZ)
+    d = load_panelA_curves()
     ap = lambda x, y: auc(x, y)
     ax.plot(d["dmo_pep_cov"], d["dmo_pep_prec"], color=COLOR_GREEN, lw=2.1, ls="--",
             label=f"DMO, un-localized · Percolator-ranked (AP={ap(d['dmo_pep_cov'], d['dmo_pep_prec']):.3f})")
