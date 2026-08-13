@@ -240,9 +240,3 @@ unannotated or pre-ProForma MGFs, mzML files, teacher-score tensors, Lance and
 FragPipe workspaces, generated configs, plotting caches, and scheduler logs.
 These are either regenerable from archived final inputs or unrelated to the
 published workflows.
-
-Run the portability and archive checks with:
-
-```bash
-python tools/check_absolute_paths.py
-```

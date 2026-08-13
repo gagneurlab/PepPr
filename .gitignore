@@ -32,5 +32,7 @@ CLEANUP_PLAN.md
 .claude/
 .vscode/
 
-# Third-party ALPS assembler jar (obtain separately; see tools/ALPS/README.md)
-tools/ALPS/*.jar
+# Third-party ALPS assembler jar (obtain separately; set DNPS_ALPS_JAR or place at <repo>/ALPS.jar)
+/ALPS.jar
+# Local-only dev tooling (not shipped)
+tools/

@@ -32,9 +32,9 @@ from peptide_priors import const
 
 
 # ALPS is third-party and not redistributed with this repo. Obtain ALPS.jar and
-# either set DNPS_ALPS_JAR or place it at tools/ALPS/ALPS.jar (see the README there).
+# either set DNPS_ALPS_JAR to its path or place it at <repo>/ALPS.jar.
 ALPS_JAR = os.environ.get(
-    "DNPS_ALPS_JAR", os.path.join(const.PROJECT_ROOT, "tools", "ALPS", "ALPS.jar"))
+    "DNPS_ALPS_JAR", os.path.join(const.PROJECT_ROOT, "ALPS.jar"))
 _MOD_BRACKET = re.compile(r"\[[^\]]*\]")
 _MOD_PAREN = re.compile(r"\([^)]*\)")
 _MASS_SHIFT = re.compile(r"[+-]?\d+\.\d+")
@@ -127,7 +127,7 @@ def run_alps(csv_path: str, k: int, c: int) -> str:
         raise FileNotFoundError(
             f"ALPS.jar not found at {ALPS_JAR}. ALPS is third-party and is not "
             f"bundled with this repository; obtain it and set DNPS_ALPS_JAR to its "
-            f"path (or place it at tools/ALPS/ALPS.jar). See tools/ALPS/README.md.")
+            f"path (or place it at <repo>/ALPS.jar).")
     command = ["java", "-jar", ALPS_JAR, csv_path, str(k), str(c)]
     print(f"  $ {' '.join(command)}")
     result = subprocess.run(
