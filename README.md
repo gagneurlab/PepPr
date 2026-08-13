@@ -184,7 +184,6 @@ the figures:
 python experiments/fig3/plot_scatter_precision.py
 python experiments/supp/plot_supp_fig_1.py
 python experiments/supp/plot_supp_fig_2.py
-python experiments/fig2/plot_benchmark.py --species mouse
 python experiments/fig3/plot_kol_overlap_vs_pp_gain.py
 
 python experiments/fig2/plot_figure_2.py      # nine-species benchmark
@@ -194,7 +193,7 @@ for script in experiments/supp/plot_supp_fig_*.py; do python "$script"; done
 ```
 
 Benchmark baselines (PowerNovo, ContraNovo, InstaNovo) are launched via
-`experiments/fig2/run_baseline.sh <tool> <species>` and compared in `experiments/fig2/plot_benchmark.py`.
+`experiments/fig2/run_baseline.sh <tool> <species>` and compared in `experiments/fig2/plot_figure_2.py`.
 
 The spectral-angle summary uses Koina/Prosit when it is regenerated and
 therefore requires network access to the Koina service. ThermoRawFileParser is
