@@ -61,7 +61,6 @@ else:
 case "$TARGET" in
   plm)
     SP="${1:?usage: train.sh plm <species>}"
-    export DNPS_PLM_DISTINGUISH_IL=0
     export DNPS_SPECIES="$SP" DNPS_PLM_SPECIES="$SP"
     activate_env
     gen_if_missing
@@ -70,7 +69,6 @@ case "$TARGET" in
 
   antibody-plm)
     require_species "${1:-}"; SPECIES="antibody_$1"
-    export DNPS_PLM_DISTINGUISH_IL=0
     export DNPS_SPECIES="$SPECIES" DNPS_PLM_SPECIES="$SPECIES"
     export DNPS_PLM_PROTEASES=sliding
     export DNPS_PLM_MAX_PEP_LEN=25
@@ -151,7 +149,6 @@ run(const.CONTRANOVO_PLM_PSM_X_TEST_PATH,  const.CONTRANOVO_PLM_PSM_TEACHER_SCOR
         export DNPS_CONTRANOVO_FUSION_MODEL_PATH="$DNPS_DATA_PATH/models/casanovo/contranovo_fusion_model.pth"
         export DNPS_CONTRANOVO_NULL_MODEL_PATH="$DNPS_DATA_PATH/models/casanovo/contranovo_null_model.pth"
         export DNPS_FUSION_PLM_TOP2_SWAP_FRAC=0.5 DNPS_FUSION_PLM_RAND_SWAP_FRAC=0.0 DNPS_FUSION_EPOCHS=16
-        unset DNPS_FUSION_OUTPUT_IL || true
         activate_env
         "$PYTHON_BIN" -m peptide_priors.train_fusion_head
         ls -lh "$DNPS_CONTRANOVO_FUSION_MODEL_PATH" "$DNPS_CONTRANOVO_NULL_MODEL_PATH"

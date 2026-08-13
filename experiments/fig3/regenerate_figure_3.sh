@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
-source "$(dirname "$0")/../dnps_data_path.sh"
+: "${DNPS_DATA_PATH:?Set DNPS_DATA_PATH to the workflow data root}"
 KOL_RUNS="/s/project/denovo-prosit/SamKhan/dnps_hybrid/kingdoms_of_life_eval_asymbnln/runs"
 SAAV_MZTAB="$DNPS_DATA_PATH/results/casanovo/proteometools_saav_hybrid.mztab"
 
@@ -15,7 +15,7 @@ if [[ "$n_iso" -lt 10 ]]; then
 fi
 
 if [[ ! -s "$SAAV_MZTAB" ]]; then
-  echo "[fatal] missing $SAAV_MZTAB (submit experiments/fig3/run_inference.slurm PROTEOMETOOLS_SAAV_DATASET)" >&2
+  echo "[fatal] missing $SAAV_MZTAB (submit experiments/run_inference.slurm PROTEOMETOOLS_SAAV_DATASET)" >&2
   exit 2
 fi
 

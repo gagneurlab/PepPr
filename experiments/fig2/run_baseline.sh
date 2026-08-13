@@ -84,7 +84,7 @@ case "$TOOL" in
   smsnet)
     # SMSNet is an external TensorFlow tool (not pip-installable, not a submodule),
     # so it is not driven from this repo. The archived baseline
-    # (results/baselines/smsnet/{human,mouse}_inputs_output, read by plot_benchmark
+    # (results/baselines/smsnet/{human,mouse}_inputs_output, read by plot_figure_2
     # via const.SMSNET_ROOT) was generated as follows, for reproducibility:
     #
     #   repo:  github.com/cmb-chula/SMSNet @ facfaf441d0e   (+ local run_*_9s.sh drivers)

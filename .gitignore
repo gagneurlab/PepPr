@@ -29,6 +29,9 @@ slurm_logs/
 logs/
 modanovo_logs/
 CLEANUP_PLAN.md
+# Local working notes (not part of the paper)
+supp_table_assembly.md
+mab_benchmark_summary.md
 .claude/
 .vscode/
 

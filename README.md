@@ -12,7 +12,7 @@ pip install -r requirements.txt
 pip install torch==2.9.0 --index-url https://download.pytorch.org/whl/cu128
 pip install -e .
 
-# Fetch model submodules and apply their integration patches.
+# Fetch the model submodules, then apply the Casanovo integration patch.
 git submodule update --init
 cd casanovo
 git apply ../casanovo_integration.patch
@@ -20,18 +20,13 @@ git apply ../casanovo_integration.patch
 # resolves casanovo's nested casanovo/ package as a namespace, breaking `import casanovo`.
 pip install -e . --config-settings editable_mode=compat
 cd ..
-cd ContraNovo
-git apply ../contranovo_integration.patch
-cd ..
 ```
 
 ### Integration patches
 
-The two patches applied in the install step above add the fusion hooks to the
-model submodules. Both depend only on `peptide_priors` being importable
-(`from peptide_priors.model import load_plm_model, load_fusion_model`).
-
-`casanovo_integration.patch` (Casanovo v5) adds:
+The install step applies `casanovo_integration.patch`, which adds the fusion
+hooks to the Casanovo v5 submodule (it depends only on `peptide_priors` being
+importable — `from peptide_priors.model import load_plm_model, load_fusion_model`):
 
 - a `--use_plm` flag on `casanovo sequence` (`casanovo.py`),
 - pepLM + fusion-head loading and fusion re-scoring inside beam search
@@ -39,12 +34,13 @@ model submodules. Both depend only on `peptide_priors` being importable
 - teacher-score dumping and PSM/mzTab plumbing used to build fusion training data
 (`denovo/model_runner.py`, `data/psm.py`, `data/ms_io.py`).
 
-`contranovo_integration.patch` (ContraNovo) adds pepLM fusion during ContraNovo
-beam search, propagates the `--use_plm` option, and provides the prediction and
-teacher-forcing runner scripts used by the fusion pipeline.
-
-To adapt the fusion head to a **different DNPS backbone**, apply the analogous
-hooks to that model's beam search and point `DNPS_FUSION_BACKBONE` at it (see below).
+Casanovo is the worked example here, but the same recipe integrates the fusion
+head into **any DNPS backbone**: add the pepLM/fusion hooks to that model's beam
+search, have it `from peptide_priors.model import load_plm_model, load_fusion_model`,
+and point `DNPS_FUSION_BACKBONE` at it. A ready-made ContraNovo integration,
+`contranovo_integration.patch`, is included — apply it the same way
+(`cd ContraNovo && git apply ../contranovo_integration.patch`) to use the
+`contranovo` backbone.
 
 ## Configuration
 
@@ -75,15 +71,6 @@ sha256sum dnps_hybrid_zenodo.tar.gz   # expect 589cd263…190091
 export DNPS_DATA_PATH="$PWD/dnps_hybrid_zenodo"
 ```
 
-`DNPS_DATA_PATH` is required. The archive contains the final annotated inputs,
-checkpoints, and result tables used by the maintained workflows; no
-machine-specific filesystem layout is assumed. Repository paths (the Casanovo
-and ContraNovo submodules, configs, and source code) are resolved from the
-checkout itself.
-
-The archive's `ARCHIVE_README.md`, `MANIFEST.tsv`, and `MANIFEST.json` record the
-role, provenance, size, and SHA-256 checksum of every archived file.
-
 Archive layout:
 
 - `fastas/`: maintained proteome and antibody training FASTAs
@@ -93,24 +80,6 @@ Archive layout:
 - `models/`: canonical pepLM, fusion, null, antibody, and baseline checkpoints
 - `results/`: canonical mzTabs, logs, summaries, and external-baseline outputs
 - `metadata/`: mAb references, regions, and final assembly summaries
-
-The KoL payload is under 1 GiB: it contains one fixed 10,000-spectrum MGF for
-each of the 15 maintained species. Each human- or mouse-prior cross-species
-comparison uses 14 of these after excluding the matching species.
-
-The Noble nine-species benchmark (MassIVE
-[`MSV000090982`](https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000090982))
-is included loose under `external/nine_species/<Species>/*.mgf`. That path is
-the default for `DNPS_NINE_SPECIES_PATH`.
-The selected MGFs must have valid ProForma `SEQ=` annotations. If a downloaded
-distribution uses leading numeric mass shifts (for example
-`SEQ=+43.006PEPTIDE`), convert it before inference:
-
-```bash
-python peptide_priors/prepare_data.py convert_proforma \
-    "/path/to/downloaded/species/*.mgf" \
-    "/path/to/proforma/species"
-```
 
 Paths and experiment choices are selected by environment variables:
 
@@ -154,7 +123,7 @@ On SLURM these two steps are wrapped by `experiments/train.sh`:
 
 To train a pepLM on something other than a UniProt proteome (e.g. an antibody
 germline repertoire), build the antibody germline corpus
-(`fastas/antibody_{human,mouse}.fasta`) with `peptide_priors/build_antibody_db.py`
+(`fastas/antibody_{human,mouse}.fasta`) with `experiments/fig4/germline_corpus.py`
 (the clean V-REGION + J·C germline corpus), add it to `SPECIES` in `const.py`,
 and run the two commands above.
 
@@ -215,7 +184,6 @@ the figures:
 python experiments/fig3/plot_scatter_precision.py
 python experiments/supp/plot_supp_fig_1.py
 python experiments/supp/plot_supp_fig_2.py
-python experiments/fig2/plot_benchmark.py --species mouse
 python experiments/fig3/plot_kol_overlap_vs_pp_gain.py
 
 python experiments/fig2/plot_figure_2.py      # nine-species benchmark
@@ -225,18 +193,16 @@ for script in experiments/supp/plot_supp_fig_*.py; do python "$script"; done
 ```
 
 Benchmark baselines (PowerNovo, ContraNovo, InstaNovo) are launched via
-`experiments/fig2/run_baseline.sh <tool> <species>` and compared in `experiments/fig2/plot_benchmark.py`.
+`experiments/fig2/run_baseline.sh <tool> <species>` and compared in `experiments/fig2/plot_figure_2.py`.
+
+Figure 4 Panel E reads the mAb assembly summaries the archive ships under
+`metadata/mabs/assembly/`. To regenerate them from the Casanovo mzTabs, run
+`experiments/fig4/run_mab.sh assemble` (i.e. `experiments/fig4/assembly.py`),
+which ALPS-assembles each mAb's baseline and +PepPr arms and rewrites those
+TSVs. It requires the third-party ALPS assembler (`ALPS.jar`; set
+`DNPS_ALPS_JAR`) and `npysearch`.
 
 The spectral-angle summary uses Koina/Prosit when it is regenerated and
 therefore requires network access to the Koina service. ThermoRawFileParser is
 needed only to recreate final ProForma MGFs from vendor RAW files; those final
 MGFs are already included in the archive.
-
-## Files
-
-All maintained data paths are defined in `peptide_priors/const.py` relative to
-`DNPS_DATA_PATH`. The archive intentionally excludes vendor RAW files,
-unannotated or pre-ProForma MGFs, mzML files, teacher-score tensors, Lance and
-FragPipe workspaces, generated configs, plotting caches, and scheduler logs.
-These are either regenerable from archived final inputs or unrelated to the
-published workflows.

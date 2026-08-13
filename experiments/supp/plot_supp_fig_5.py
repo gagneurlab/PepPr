@@ -27,7 +27,7 @@ from experiments.utils.evaluation import (
     MASSIVEKB_MASSES, _normalize_to_massivekb, _expand_masses,
     load_mztab_with_mgf, evaluate,
 )
-from experiments.fig4.antibody_utils import (
+from experiments.fig4.references import (
     ARM_STYLE,
     MAB_SPECS,
     XANOVO_PROTEASES,

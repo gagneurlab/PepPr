@@ -14,19 +14,16 @@ Four panels:
      fit shows lift correlates with proteome overlap.
 
 Reads cached outputs from:
+  * panelA_curves.load_panelA_curves → panelA_curves.npz (Panel A)
   * plot_scatter_precision.py  → scatter_precision_cache.csv (Panel C)
   * plot_kol_overlap_vs_pp_gain.py → kol_overlap_vs_pp_gain.csv (Panel D)
-Panel A re-loads the mutations mztabs and re-computes PC inline.  Panel B
-uses the spectrum + sequence-diff helpers from xa_novo/plot_figure_4_vc.py.
+Panel B uses the spectrum + sequence-diff helpers from experiments.utils.evaluation.
 
 Usage:
     python experiments/fig3/plot_figure_3.py
 """
 import os
 import sys
-import re
-import glob
-import csv
 
 import numpy as np
 import pandas as pd
@@ -40,11 +37,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(_HERE)))
 
 from sklearn.metrics import auc
 from experiments.utils.evaluation import (
-    _normalize_to_massivekb, evaluate, MASSIVEKB_MASSES, load_mztab_with_mgf,
-    _parse_ms_run_locations, count_mgf_spectra,
     plot_sequence_diff, plot_spectrum_on_ax, paired_median_delta_stats,
     annotate_missing_ion_gap, annotate_precursor_readout,
 )
+from experiments.fig3.panelA_curves import load_panelA_curves
 from peptide_priors.const import (
     COLOR_CASANOVO as COLOR_DNPS,
     COLOR_DARK_GRAY,
@@ -54,7 +50,6 @@ from peptide_priors.const import (
     COLOR_PURPLE,
     PROTEOMETOOLS_SAAV_DIR,
     PROJECT_ROOT,
-    result_run_path,
 )
 
 
@@ -68,16 +63,13 @@ def _sp_label(s):
 
 
 # ── Panel A: ProteomeTools SAAV PC curves ────────────────────
-PANELA_NPZ = os.path.join(PROTEOMETOOLS_SAAV_DIR, "panelA_curves.npz")
-
-
 def plot_panel_A(ax):
     """ProteomeTools SAAV PC curves on the GT-search 1%-FDR spectra. De novo (Casanovo,
     Casanovo+PepPr) vs the MSFragger DMO database search (site-localized, ranked by
     Percolator; localization = PTMProphet where present, else MSFragger
-    localize_delta_mass). Curves are precomputed (build_panelA_data.py ->
-    panelA_curves.npz); this is a thin renderer."""
-    d = np.load(PANELA_NPZ)
+    localize_delta_mass). Curves are precomputed (panelA_curves.load_panelA_curves);
+    this is a thin renderer."""
+    d = load_panelA_curves()
     ap = lambda x, y: auc(x, y)
     ax.plot(d["pp_cov"], d["pp_prec"], color=COLOR_PP, lw=2.2,
             label=f"Casanovo + PepPr (AP={ap(d['pp_cov'], d['pp_prec']):.3f})")

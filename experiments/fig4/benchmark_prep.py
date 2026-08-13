@@ -10,10 +10,10 @@ Subcommands:
                             1%-FDR psm.tsv.
 
 Run from the repo root, e.g.:
-  python -m antibody.mab_prep stage-beslic
-  python -m antibody.mab_prep prepare-nontryp --idx 3 5
-  python -m antibody.mab_prep annotate nontryp
-  python -m antibody.mab_prep annotate beslic IgG1_Human_H
+  python experiments/fig4/benchmark_prep.py stage-beslic
+  python experiments/fig4/benchmark_prep.py prepare-nontryp --idx 3 5
+  python experiments/fig4/benchmark_prep.py annotate nontryp
+  python experiments/fig4/benchmark_prep.py annotate beslic IgG1_Human_H
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
 from peptide_priors.const import DATA_PATH
-from nontryp_registry import RUNS, NonTrypRun
+from experiments.fig4.benchmark_registry import RUNS, NonTrypRun
 
 BESLIC_DIR = os.path.join(DATA_PATH, "beslic_mab")
 

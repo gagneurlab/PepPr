@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
-"""Precompute all ProteomeTools-SAAV Panel A curve arrays into a small npz so the figure
-function (plot_figure_3.plot_panel_A) is a thin, fast renderer with no pepXML/mgf parsing
-at plot time. Saves to the Zenodo archive (benchmarks/proteometools_saav/panelA_curves.npz).
+"""ProteomeTools-SAAV Panel A curve arrays.
 
-Main Panel A: Casanovo, Casanovo+PepPr, and the MSFragger DMO site-localized curve
-(Percolator-ranked) + the 1% PSM-FDR operating point. Supplementary extras also stored
-(plot_panelA_supp.py): the same DMO correctness ranked by PTM-Prophet localization score,
-the DMO peptide-level (localization-agnostic) curve, and Casanovo with adjacent-swap leniency.
+`load_panelA_curves()` returns the precomputed `panelA_curves.npz` (shipped in the
+Zenodo archive under `benchmarks/proteometools_saav/`), building it from the
+canonical Casanovo/Casanovo+PepPr mzTabs and the MSFragger DMO PSMs if absent.
+Keeping it in an npz lets the figure functions be thin, fast renderers with no
+pepXML/mgf parsing at plot time.
+
+Consumers:
+  * plot_figure_3.plot_panel_A — main panel: Casanovo, Casanovo+PepPr, and the
+    MSFragger DMO site-localized curve (Percolator-ranked) + the 1% PSM-FDR point.
+  * supp/plot_panelA_supp.py — DMO localization/ranking supplement: the same DMO
+    correctness ranked by PTM-Prophet localization score, the DMO peptide-level
+    (localization-agnostic) curve, and Casanovo with adjacent-swap leniency.
+
+Run `python experiments/fig3/panelA_curves.py` to (re)build the npz explicitly.
 """
 import os, sys, re
 import numpy as np
@@ -14,16 +22,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from experiments.utils.evaluation import (load_mztab_with_mgf, _normalize_to_massivekb, evaluate,
                                  MASSIVEKB_MASSES, count_mgf_spectra)
 from peptide_priors.const import PROTEOMETOOLS_SAAV_DIR, result_run_path
-import experiments.fig4.build_dmo_curves as bd
+import experiments.fig3.build_dmo_curves as bd
 
-_RES = result_run_path("casanovo")
-DNPS = os.path.join(_RES, "proteometools_saav_dnps.mztab")
-HYB = os.path.join(_RES, "proteometools_saav_hybrid.mztab")
+PANELA_NPZ = os.path.join(PROTEOMETOOLS_SAAV_DIR, "panelA_curves.npz")
 _tok = lambda s: re.split(r"(?<=.)(?=[A-Z])", s)
-N = count_mgf_spectra(DNPS)
 
 
-def denovo_curve(mz, lenient=False):
+def _denovo_curve(mz, n_total, lenient=False):
     df = load_mztab_with_mgf(mz)
     T = [_normalize_to_massivekb(r["true_seq"]) for _, r in df.iterrows() if r["true_seq"]]
     P = [_normalize_to_massivekb(r["pred"]) for _, r in df.iterrows() if r["true_seq"]]
@@ -44,10 +49,10 @@ def denovo_curve(mz, lenient=False):
                 if fok[k]:
                     ok[i] = 1
     o = np.argsort(-S, kind="mergesort")
-    return np.arange(1, len(ok) + 1) / N, np.cumsum(ok[o]) / np.arange(1, len(ok) + 1)
+    return np.arange(1, len(ok) + 1) / n_total, np.cumsum(ok[o]) / np.arange(1, len(ok) + 1)
 
 
-def dmo_curves():
+def _dmo_curves(n_total):
     """MSFragger DMO curves. Main figure uses SITE-LOCALIZED ranked by Percolator
     (localization = best available: PTMProphet where present, else MSFragger
     localize_delta_mass, via psm['site_loc']). Also stored for the supplement:
@@ -77,29 +82,48 @@ def dmo_curves():
     rank = np.arange(1, len(perc) + 1)
     op = np.argsort(-perc, kind="mergesort"); ot = np.argsort(-ptm, kind="mergesort")
     out = dict(
-        dmo_site_cov=rank / N, dmo_site_prec=np.cumsum(site_ok[op]) / rank,          # perc-ranked (main)
-        dmo_site_ptm_cov=rank / N, dmo_site_ptm_prec=np.cumsum(site_ok[ot]) / rank,  # loc-score-ranked (suppl.)
-        dmo_pep_cov=rank / N, dmo_pep_prec=np.cumsum(pep_ok[op]) / rank,             # peptide-level (suppl.)
+        dmo_site_cov=rank / n_total, dmo_site_prec=np.cumsum(site_ok[op]) / rank,          # perc-ranked (main)
+        dmo_site_ptm_cov=rank / n_total, dmo_site_ptm_prec=np.cumsum(site_ok[ot]) / rank,  # loc-score-ranked (suppl.)
+        dmo_pep_cov=rank / n_total, dmo_pep_prec=np.cumsum(pep_ok[op]) / rank,             # peptide-level (suppl.)
     )
     pep = 1.0 - perc[op]; q = np.cumsum(pep) / rank
     below = np.where(q <= 0.01)[0]
     if len(below):
         k = below[-1] + 1
-        out["fdr_cov"] = k / N
+        out["fdr_cov"] = k / n_total
         out["fdr_site_prec"] = site_ok[op][:k].mean()
         out["fdr_pep_prec"] = pep_ok[op][:k].mean()
         out["fdr_thr"] = float(perc[op][k - 1])
     return out
 
 
-d = {"n_total": N}
-d["cas_cov"], d["cas_prec"] = denovo_curve(DNPS, lenient=False)
-d["casswap_cov"], d["casswap_prec"] = denovo_curve(DNPS, lenient=True)
-d["pp_cov"], d["pp_prec"] = denovo_curve(HYB, lenient=False)
-d.update(dmo_curves())
+def build_panelA_curves():
+    """Recompute every Panel A curve from the canonical mzTabs + DMO PSMs and write
+    the npz. Returns the npz path."""
+    res = result_run_path("casanovo")
+    dnps = os.path.join(res, "proteometools_saav_dnps.mztab")
+    hyb = os.path.join(res, "proteometools_saav_hybrid.mztab")
+    n = count_mgf_spectra(dnps)
+    d = {"n_total": n}
+    d["cas_cov"], d["cas_prec"] = _denovo_curve(dnps, n, lenient=False)
+    d["casswap_cov"], d["casswap_prec"] = _denovo_curve(dnps, n, lenient=True)
+    d["pp_cov"], d["pp_prec"] = _denovo_curve(hyb, n, lenient=False)
+    d.update(_dmo_curves(n))
+    os.makedirs(os.path.dirname(PANELA_NPZ), exist_ok=True)
+    np.savez(PANELA_NPZ, **d)
+    return PANELA_NPZ
 
-path = os.path.join(PROTEOMETOOLS_SAAV_DIR, "panelA_curves.npz")
-os.makedirs(os.path.dirname(path), exist_ok=True)
-np.savez(path, **d)
-print("saved", path)
-print(f"n_total={N}  fdr_cov={d.get('fdr_cov')} fdr_site={d.get('fdr_site_prec'):.3f}")
+
+def load_panelA_curves(rebuild=False):
+    """Return the Panel A curves as an npz mapping, building it if missing."""
+    if rebuild or not os.path.exists(PANELA_NPZ):
+        build_panelA_curves()
+    return np.load(PANELA_NPZ)
+
+
+if __name__ == "__main__":
+    build_panelA_curves()
+    d = np.load(PANELA_NPZ)
+    print("saved", PANELA_NPZ)
+    print(f"n_total={int(d['n_total'])}  fdr_cov={d['fdr_cov'] if 'fdr_cov' in d.files else None}"
+          f" fdr_site={float(d['fdr_site_prec']):.3f}" if "fdr_site_prec" in d.files else "")
