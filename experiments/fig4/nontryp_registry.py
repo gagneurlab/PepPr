@@ -7,9 +7,7 @@ Each Run describes one protease's FragPipe + Casanovo end-to-end pipeline:
 
 The registry drives the antibody pipeline in experiments/fig4/mab_prep.py
 (prepare-nontryp / annotate) and experiments/fig4/run_mab.sh (fragpipe / casanovo
-/ submit), and is read by
-experiments/supp/plot_supp_fig_beslic.py, which plots vanilla Casanovo vs the germline
-sliding-window (+PepPr) arm per (mAb, protease).
+/ submit).
 """
 
 from __future__ import annotations
