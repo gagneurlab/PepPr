@@ -52,6 +52,8 @@ ALPS_JAR = os.environ.get(
 # Union of ALPS contigs across these k (matches the shipped `..._k7to11.tsv`).
 K_MERS = [7, 8, 9, 10, 11]
 TOP_CONTIGS = 20
+# Minimum Casanovo PSM score fed to ALPS (drops low-confidence PSMs pre-assembly).
+ALPS_SCORE_THRESHOLD = 0.1
 OUT_DIR = os.path.join(const.WORK_DIR, "mabs", "alps")  # scratch for CSVs/contigs
 
 # Strip ProForma mods from an mzTab peptide: bracket mods (N[Deamidated]),
@@ -109,18 +111,15 @@ def parse_mztab_for_alps(path: str) -> list[PSMRow]:
     return rows
 
 
-def write_alps_csv(psms: list[PSMRow], out_csv: str) -> int:
-    """Write ALPS-format PSMs (Spectrum Name, Peptide, aaScore, Score, Area).
-
-    Drops only the mass-inconsistent PSMs (Casanovo score < 0); no confidence
-    cutoff is applied — ALPS' soft per-AA weighting handles quality, and a
-    score cutoff has been ruled out as a driver of the assembly outcome.
-    """
+def write_alps_csv(psms: list[PSMRow], out_csv: str,
+                   score_threshold: float = ALPS_SCORE_THRESHOLD) -> int:
+    """Write ALPS-format PSMs (Spectrum Name, Peptide, aaScore, Score, Area),
+    dropping PSMs scoring below ``score_threshold`` (see ALPS_SCORE_THRESHOLD)."""
     n = 0
     with open(out_csv, "w") as f:
         f.write("Spectrum Name,Casanovo Peptide,Casanovo aaScore,Casanovo Score,Area\n")
         for p in psms:
-            if p.score < 0:
+            if p.score < score_threshold:
                 continue
             f.write(f"{p.spectrum},{p.peptide},{p.aa_scores},{p.score},1\n")
             n += 1
