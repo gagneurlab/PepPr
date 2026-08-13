@@ -11,10 +11,9 @@ Main figure (paper Figure 4):
 Usage:
     python experiments/fig4/plot_figure_4.py
 """
-import argparse, csv, re, sys
+import argparse, csv, os, re, sys
 from collections import Counter
 
-import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
 from peptide_priors import const
 
@@ -33,7 +32,7 @@ from experiments.utils.evaluation import (
     annotate_missing_ion_gap, _ion_mz, _B_ION_COLOR,
 )
 from peptide_priors.const import COLOR_LIGHT_GRAY, COLOR_PP, COLOR_RED
-from antibody_utils import (
+from experiments.fig4.references import (
     ARM_STYLE,
     MAB_SPECS,
     XANOVO_PROTEASES,

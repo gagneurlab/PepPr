@@ -123,7 +123,7 @@ On SLURM these two steps are wrapped by `experiments/train.sh`:
 
 To train a pepLM on something other than a UniProt proteome (e.g. an antibody
 germline repertoire), build the antibody germline corpus
-(`fastas/antibody_{human,mouse}.fasta`) with `peptide_priors/build_antibody_db.py`
+(`fastas/antibody_{human,mouse}.fasta`) with `experiments/fig4/germline_corpus.py`
 (the clean V-REGION + J·C germline corpus), add it to `SPECIES` in `const.py`,
 and run the two commands above.
 

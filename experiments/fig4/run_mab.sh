@@ -16,7 +16,7 @@
 #         nontryp resolves RUNS[SLURM_ARRAY_TASK_ID]; submit as an array.
 #
 #   run_mab.sh annotate <beslic [MAB...] | nontryp [--idx N ...]>
-#         Insert SEQ=<ProForma> into the spectra (python experiments/fig4/mab_prep.py).
+#         Insert SEQ=<ProForma> into the spectra (python experiments/fig4/benchmark_prep.py).
 #
 #   run_mab.sh casanovo <beslic_H|beslic_L|herceptin|trastuzumab|nontryp> <noplm|human_iso|germline>
 #         Casanovo v5 de novo, one dataset x one arm. NEEDS A GPU:
@@ -63,7 +63,7 @@ fragpipe_stage() {
       sleep $((idx * 30))
       local mab protease
       read mab protease workdir < <("$PYTHON_BIN" - <<PYEOF
-from experiments.fig4.nontryp_registry import RUNS
+from experiments.fig4.benchmark_registry import RUNS
 r = RUNS[$idx]
 print(r.mab_id, r.protease, r.workdir)
 PYEOF
@@ -123,7 +123,7 @@ casanovo_stage() {
       local idx="${SLURM_ARRAY_TASK_ID:?nontryp needs an --array task id (RUNS index)}"
       local protease
       read mab_id protease src_mgf res_dir < <("$PYTHON_BIN" - <<PYEOF
-from experiments.fig4.nontryp_registry import RUNS
+from experiments.fig4.benchmark_registry import RUNS
 r = RUNS[$idx]
 print(r.mab_id, r.protease, r.annotated_mgf, r.res_dir)
 PYEOF
@@ -253,7 +253,7 @@ submit_pipeline() {
 case "$SUBCMD" in
   fragpipe) fragpipe_stage "$@" ;;
   casanovo) casanovo_stage "$@" ;;
-  annotate) "$PYTHON_BIN" experiments/fig4/mab_prep.py annotate "$@" ;;
+  annotate) "$PYTHON_BIN" experiments/fig4/benchmark_prep.py annotate "$@" ;;
   submit)   submit_pipeline "$@" ;;
   *) echo "unknown subcommand '$SUBCMD' (fragpipe|annotate|casanovo|submit)" >&2; exit 2 ;;
 esac

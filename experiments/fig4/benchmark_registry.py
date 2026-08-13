@@ -5,7 +5,7 @@ Each Run describes one protease's FragPipe + Casanovo end-to-end pipeline:
   - per-mAb target+decoy FASTA
   - MSFragger enzyme params for the protease
 
-The registry drives the antibody pipeline in experiments/fig4/mab_prep.py
+The registry drives the antibody pipeline in experiments/fig4/benchmark_prep.py
 (prepare-nontryp / annotate) and experiments/fig4/run_mab.sh (fragpipe / casanovo
 / submit).
 """
@@ -15,7 +15,6 @@ from __future__ import annotations
 import os
 import sys
 from dataclasses import dataclass
-from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
 from peptide_priors.const import (
