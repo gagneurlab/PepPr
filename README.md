@@ -195,6 +195,13 @@ for script in experiments/supp/plot_supp_fig_*.py; do python "$script"; done
 Benchmark baselines (PowerNovo, ContraNovo, InstaNovo) are launched via
 `experiments/fig2/run_baseline.sh <tool> <species>` and compared in `experiments/fig2/plot_figure_2.py`.
 
+Figure 4 Panel E reads the mAb assembly summaries the archive ships under
+`metadata/mabs/assembly/`. To regenerate them from the Casanovo mzTabs, run
+`experiments/fig4/run_mab.sh assemble` (i.e. `experiments/fig4/assembly.py`),
+which ALPS-assembles each mAb's baseline and +PepPr arms and rewrites those
+TSVs. It requires the third-party ALPS assembler (`ALPS.jar`; set
+`DNPS_ALPS_JAR`) and `npysearch`.
+
 The spectral-angle summary uses Koina/Prosit when it is regenerated and
 therefore requires network access to the Koina service. ThermoRawFileParser is
 needed only to recreate final ProForma MGFs from vendor RAW files; those final

@@ -27,6 +27,11 @@
 #         Orchestrate the full non-tryptic array pipeline on Slurm
 #         (fragpipe -> annotate -> casanovo) with dependencies. Run on a login node.
 #
+#   run_mab.sh assemble [--mabs MAB...] [--k K...]
+#         ALPS-assemble each mAb (baseline vs +PP) from its Casanovo mzTabs and
+#         write the Figure 4 Panel E summaries (const.FIGURE_4_ASSEMBLY_TSV_PATHS).
+#         Needs ALPS.jar (set DNPS_ALPS_JAR) + npysearch.
+#
 # The #SBATCH header omits --gres so the FragPipe/annotate stages don't tie up a
 # GPU; the casanovo stage must be submitted with --gres=gpu:1 (submit does this).
 
@@ -43,7 +48,7 @@ fi
 set -euo pipefail
 cd "$REPO_ROOT"
 
-SUBCMD="${1:?usage: run_mab.sh <fragpipe|annotate|casanovo|submit> ...}"
+SUBCMD="${1:?usage: run_mab.sh <fragpipe|annotate|casanovo|submit|assemble> ...}"
 shift || true
 
 
@@ -255,7 +260,8 @@ case "$SUBCMD" in
   casanovo) casanovo_stage "$@" ;;
   annotate) "$PYTHON_BIN" experiments/fig4/benchmark_prep.py annotate "$@" ;;
   submit)   submit_pipeline "$@" ;;
-  *) echo "unknown subcommand '$SUBCMD' (fragpipe|annotate|casanovo|submit)" >&2; exit 2 ;;
+  assemble) "$PYTHON_BIN" experiments/fig4/assembly.py "$@" ;;
+  *) echo "unknown subcommand '$SUBCMD' (fragpipe|annotate|casanovo|submit|assemble)" >&2; exit 2 ;;
 esac
 
 echo "=== Done ($(date -Is)) ==="

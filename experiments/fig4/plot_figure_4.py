@@ -232,6 +232,9 @@ _ASSEMBLY_MABS = [
 
 
 def _load_assembly_rows():
+    # These per-(mab, arm, chain) summaries are produced by
+    # experiments/fig4/assembly.py (run_mab.sh assemble); the archive ships the
+    # canonical copies at const.FIGURE_4_ASSEMBLY_TSV_PATHS.
     rows = []
     for path in const.FIGURE_4_ASSEMBLY_TSV_PATHS:
         with open(path) as handle:
