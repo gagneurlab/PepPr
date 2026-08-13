@@ -12,7 +12,7 @@ pip install -r requirements.txt
 pip install torch==2.9.0 --index-url https://download.pytorch.org/whl/cu128
 pip install -e .
 
-# Fetch model submodules and apply their integration patches.
+# Fetch the model submodules, then apply the Casanovo integration patch.
 git submodule update --init
 cd casanovo
 git apply ../casanovo_integration.patch
@@ -20,18 +20,13 @@ git apply ../casanovo_integration.patch
 # resolves casanovo's nested casanovo/ package as a namespace, breaking `import casanovo`.
 pip install -e . --config-settings editable_mode=compat
 cd ..
-cd ContraNovo
-git apply ../contranovo_integration.patch
-cd ..
 ```
 
 ### Integration patches
 
-The two patches applied in the install step above add the fusion hooks to the
-model submodules. Both depend only on `peptide_priors` being importable
-(`from peptide_priors.model import load_plm_model, load_fusion_model`).
-
-`casanovo_integration.patch` (Casanovo v5) adds:
+The install step applies `casanovo_integration.patch`, which adds the fusion
+hooks to the Casanovo v5 submodule (it depends only on `peptide_priors` being
+importable — `from peptide_priors.model import load_plm_model, load_fusion_model`):
 
 - a `--use_plm` flag on `casanovo sequence` (`casanovo.py`),
 - pepLM + fusion-head loading and fusion re-scoring inside beam search
@@ -39,12 +34,13 @@ model submodules. Both depend only on `peptide_priors` being importable
 - teacher-score dumping and PSM/mzTab plumbing used to build fusion training data
 (`denovo/model_runner.py`, `data/psm.py`, `data/ms_io.py`).
 
-`contranovo_integration.patch` (ContraNovo) adds pepLM fusion during ContraNovo
-beam search, propagates the `--use_plm` option, and provides the prediction and
-teacher-forcing runner scripts used by the fusion pipeline.
-
-To adapt the fusion head to a **different DNPS backbone**, apply the analogous
-hooks to that model's beam search and point `DNPS_FUSION_BACKBONE` at it (see below).
+Casanovo is the worked example here, but the same recipe integrates the fusion
+head into **any DNPS backbone**: add the pepLM/fusion hooks to that model's beam
+search, have it `from peptide_priors.model import load_plm_model, load_fusion_model`,
+and point `DNPS_FUSION_BACKBONE` at it. A ready-made ContraNovo integration,
+`contranovo_integration.patch`, is included — apply it the same way
+(`cd ContraNovo && git apply ../contranovo_integration.patch`) to use the
+`contranovo` backbone.
 
 ## Configuration
 
