@@ -103,6 +103,19 @@ Paths and experiment choices are selected by environment variables:
 
 Per-species proteome FASTAs are listed in the `SPECIES` dict in `const.py`.
 
+### Running on a cluster
+
+The `experiments/` scripts that carry `#SBATCH` headers — `train.sh`,
+`run_inference.slurm`, `fig2/run_baseline.sh`, `fig2/run_nine_species_inference.slurm`,
+`fig3/run_kol_eval.sh`, and `fig4/run_mab.sh` — are the SLURM entry points we
+used. Their `#SBATCH` directives are specific to our cluster: the
+`noninterruptive` partition, the `--exclude=ouga…` node list, and the GPU /
+memory / time requests. Adjust the partition, node, and resource lines for your
+own scheduler, or run the scripts directly as plain bash on a machine with a GPU
+(each one works either way). A few helper scripts (e.g.
+`fig3/regenerate_figure_3.sh`) also reference lab-internal data paths that you
+will need to repoint.
+
 ## 1. Train a peptide language model (pepLM)
 
 Generate the pepLM training corpus (in-silico digest of the FASTA file →
