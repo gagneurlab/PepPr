@@ -16,7 +16,9 @@ pip install -e .
 git submodule update --init
 cd casanovo
 git apply ../casanovo_integration.patch
-pip install -e .
+# editable_mode=compat is required: setuptools' default (strict) editable install
+# resolves casanovo's nested casanovo/ package as a namespace, breaking `import casanovo`.
+pip install -e . --config-settings editable_mode=compat
 cd ..
 cd ContraNovo
 git apply ../contranovo_integration.patch

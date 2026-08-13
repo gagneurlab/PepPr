@@ -1,6 +1,6 @@
 # ALPS
 
-The mAb assembly pipeline (`peptide_priors/assembly.py`) shells out to **ALPS**, a
+The mAb assembly pipeline (`experiments/fig4/assembly.py`) shells out to **ALPS**, a
 third-party peptide de novo sequencing assembler, via `java -jar ALPS.jar <csv> <k> <c>`.
 
 ALPS is **not redistributed with this repository**. To run the assembly step,
