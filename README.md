@@ -71,15 +71,6 @@ sha256sum dnps_hybrid_zenodo.tar.gz   # expect 589cd263…190091
 export DNPS_DATA_PATH="$PWD/dnps_hybrid_zenodo"
 ```
 
-`DNPS_DATA_PATH` is required. The archive contains the final annotated inputs,
-checkpoints, and result tables used by the maintained workflows; no
-machine-specific filesystem layout is assumed. Repository paths (the Casanovo
-and ContraNovo submodules, configs, and source code) are resolved from the
-checkout itself.
-
-The archive's `ARCHIVE_README.md`, `MANIFEST.tsv`, and `MANIFEST.json` record the
-role, provenance, size, and SHA-256 checksum of every archived file.
-
 Archive layout:
 
 - `fastas/`: maintained proteome and antibody training FASTAs
@@ -89,24 +80,6 @@ Archive layout:
 - `models/`: canonical pepLM, fusion, null, antibody, and baseline checkpoints
 - `results/`: canonical mzTabs, logs, summaries, and external-baseline outputs
 - `metadata/`: mAb references, regions, and final assembly summaries
-
-The KoL payload is under 1 GiB: it contains one fixed 10,000-spectrum MGF for
-each of the 15 maintained species. Each human- or mouse-prior cross-species
-comparison uses 14 of these after excluding the matching species.
-
-The Noble nine-species benchmark (MassIVE
-[`MSV000090982`](https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000090982))
-is included loose under `external/nine_species/<Species>/*.mgf`. That path is
-the default for `DNPS_NINE_SPECIES_PATH`.
-The selected MGFs must have valid ProForma `SEQ=` annotations. If a downloaded
-distribution uses leading numeric mass shifts (for example
-`SEQ=+43.006PEPTIDE`), convert it before inference:
-
-```bash
-python peptide_priors/prepare_data.py convert_proforma \
-    "/path/to/downloaded/species/*.mgf" \
-    "/path/to/proforma/species"
-```
 
 Paths and experiment choices are selected by environment variables:
 
@@ -227,12 +200,3 @@ The spectral-angle summary uses Koina/Prosit when it is regenerated and
 therefore requires network access to the Koina service. ThermoRawFileParser is
 needed only to recreate final ProForma MGFs from vendor RAW files; those final
 MGFs are already included in the archive.
-
-## Files
-
-All maintained data paths are defined in `peptide_priors/const.py` relative to
-`DNPS_DATA_PATH`. The archive intentionally excludes vendor RAW files,
-unannotated or pre-ProForma MGFs, mzML files, teacher-score tensors, Lance and
-FragPipe workspaces, generated configs, plotting caches, and scheduler logs.
-These are either regenerable from archived final inputs or unrelated to the
-published workflows.

@@ -61,7 +61,6 @@ else:
 case "$TARGET" in
   plm)
     SP="${1:?usage: train.sh plm <species>}"
-    export DNPS_PLM_DISTINGUISH_IL=0
     export DNPS_SPECIES="$SP" DNPS_PLM_SPECIES="$SP"
     activate_env
     gen_if_missing
@@ -70,7 +69,6 @@ case "$TARGET" in
 
   antibody-plm)
     require_species "${1:-}"; SPECIES="antibody_$1"
-    export DNPS_PLM_DISTINGUISH_IL=0
     export DNPS_SPECIES="$SPECIES" DNPS_PLM_SPECIES="$SPECIES"
     export DNPS_PLM_PROTEASES=sliding
     export DNPS_PLM_MAX_PEP_LEN=25

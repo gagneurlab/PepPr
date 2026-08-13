@@ -183,7 +183,7 @@ PYEOF
         IgG1_Human*|Herceptin|Trastuzumab) sp=human ;;
         *)                                 sp=mouse ;;
       esac
-      export DNPS_PLM_DISTINGUISH_IL=0 DNPS_FUSION_OUTPUT_IL=0
+      export DNPS_FUSION_OUTPUT_IL=0
       # germline pepLM checkpoints were renamed to models/antibody_<sp>/ for the archive.
       export DNPS_PLM_CKPT_PATH="$data/models/antibody_${sp}/plm_ckpt.pt"
       export DNPS_FUSION_MODEL_PATH="$data/models/casanovo/fusion_model_asymbnln.pth"
