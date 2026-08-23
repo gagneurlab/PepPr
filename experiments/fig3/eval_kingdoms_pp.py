@@ -6,8 +6,8 @@ species, using the ProForma-annotated MGFs produced by
 For each ``--species`` (e.g. human, mouse, …):
   1. Read the archived, fixed 10k-spectrum subset from
      ``<mgf-root>/<species>.mgf``.
-  2. Run ``casanovo sequence -e`` twice — once with ``--use_plm false``
-     (Casanovo) and once with ``--use_plm true`` while
+  2. Run ``casanovo sequence -e`` twice — once with ``--use_peppr false``
+     (Casanovo) and once with ``--use_peppr true`` while
      ``DNPS_PLM_SPECIES=<plm-species>`` (Casanovo + that species' PP).
      Beam width is taken from config.yaml (n_beams=5).
   3. Tee casanovo's stdout/stderr to a per-run log; mztab lands next to it.
@@ -161,7 +161,7 @@ def run_casanovo(
     input_path: Path,
     out_dir: Path,
     out_root: str,
-    use_plm: bool,
+    use_peppr: bool,
     plm_species: str,
     ckpt: str,
     config: str,
@@ -178,7 +178,7 @@ def run_casanovo(
         "-o", out_root,
         "-e",
         "--teacher_forcing", "false",
-        "--use_plm", "true" if use_plm else "false",
+        "--use_peppr", "true" if use_peppr else "false",
         "--force_overwrite",
         str(input_path),
     ]
@@ -188,7 +188,7 @@ def run_casanovo(
     # Null / RUN_PATH follow ACTIVE_SPECIES; align with pepLM so the null
     # baseline matches the fusion head's training regime.
     env.setdefault("DNPS_SPECIES", plm_species)
-    if use_plm:
+    if use_peppr:
         run_name = _PLM_SPECIES_CFG[plm_species]["run_name"]
         fusion_p = os.path.join(MODELS_DIR, run_name, "fusion_model.pth")
         env.setdefault("DNPS_FUSION_MODEL_PATH", fusion_p)
@@ -200,7 +200,7 @@ def run_casanovo(
         + (
             f"  DNPS_FUSION_MODEL_PATH={env.get('DNPS_FUSION_MODEL_PATH', '')}"
             f"  DNPS_NULL_MODEL_PATH={env.get('DNPS_NULL_MODEL_PATH', '')}"
-            if use_plm
+            if use_peppr
             else ""
         )
     )
@@ -286,13 +286,13 @@ def main() -> None:
         sp_run_dir.mkdir(parents=True, exist_ok=True)
 
         for mode in args.modes:
-            use_plm = mode == "casanovo_pp"
+            use_peppr = mode == "casanovo_pp"
             # "casanovo_only" rather than "casanovo" — click rejects bare
             # "casanovo" because there's a directory of that name in CWD.
             # The +PP filename includes the PLM species so cross-species
             # transfer runs (e.g. mouse data, human PP) don't collide.
             out_root = (
-                f"casanovo_pp_{args.plm_species}" if use_plm else "casanovo_only"
+                f"casanovo_pp_{args.plm_species}" if use_peppr else "casanovo_only"
             )
             mztab = sp_run_dir / f"{out_root}.mztab"
             log_path = sp_run_dir / f"{out_root}.log"
@@ -304,7 +304,7 @@ def main() -> None:
                 for stale in sp_run_dir.glob(f"{out_root}*.mztab"):
                     stale.unlink()
                 rc = run_casanovo(
-                    subset_path, sp_run_dir, out_root, use_plm,
+                    subset_path, sp_run_dir, out_root, use_peppr,
                     args.plm_species, args.ckpt, args.config, log_path,
                 )
                 if rc != 0:

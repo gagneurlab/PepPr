@@ -8,7 +8,7 @@ index 5d26640..a083683 100644
  )
 +@click.option(
 +    "-p",
-+    "--use_plm",
++    "--use_peppr",
 +    type=click.BOOL,
 +    default=False,
 +    help="If True, fuse pepLM predictions with ContraNovo's decoder logits "
@@ -21,7 +21,7 @@ index 5d26640..a083683 100644
      peak_path_test: Optional[str],
      config: Optional[str],
      output: Optional[str],
-+    use_plm: bool,
++    use_peppr: bool,
  ):
     
      # print("hello xiang")
@@ -30,12 +30,12 @@ index 5d26640..a083683 100644
          #     config, peak_path=peak_path, model=model, config_filename=config_fn
          # )
 -        model_runner.predict(peak_path, model, config, writer)
-+        model_runner.predict(peak_path, model, config, writer, use_plm=use_plm)
++        model_runner.predict(peak_path, model, config, writer, use_peppr=use_peppr)
          writer.save()
      elif mode == "eval":
          logger.info("Evaluate a trained ContraNovo model.")
 -        model_runner.evaluate(peak_path, model, config)
-+        model_runner.evaluate(peak_path, model, config, use_plm=use_plm)
++        model_runner.evaluate(peak_path, model, config, use_peppr=use_peppr)
      elif mode == "train":
          logger.info("Train the ContraNovo model.")
          model_runner.train(peak_path, peak_path_val, peak_path_test, model, config)
@@ -67,7 +67,7 @@ index 4610f6a..fde245c 100644
          warmup_iters: int = 100_000,
          max_iters: int = 600_000,
          out_writer = None,
-+        use_plm: bool = False,
++        use_peppr: bool = False,
          **kwargs: Dict,
      ):
          super().__init__()
@@ -76,7 +76,7 @@ index 4610f6a..fde245c 100644
          self.out_writer = out_writer
  
 +        global PLM_MODEL, FUSION_MODEL, CONTRANOVO_TRANSLATION
-+        if use_plm:
++        if use_peppr:
 +            PLM_MODEL = load_plm_model()
 +            # ContraNovo's vocab dim used for the score tensor is
 +            # `decoder.vocab_size + 1` (see beam_search_decode). Use the
@@ -145,7 +145,7 @@ index 4295682..09a9a05 100644
      config: Dict[str, Any],
 -    out_writer: None
 +    out_writer: None,
-+    use_plm: bool = False,
++    use_peppr: bool = False,
  ) -> None:
      """
      Predict peptide sequences with a trained ContraNovo model.
@@ -153,13 +153,13 @@ index 4295682..09a9a05 100644
          The file name of the model weights (.ckpt file).
      config : Dict[str, Any]
          The configuration options.
-+    use_plm : bool
++    use_peppr : bool
 +        If True, fuse pepLM predictions with the ContraNovo decoder logits
 +        during beam search.
      """
 -    _execute_existing(peak_path, model_filename, config, False, out_writer)
 +    _execute_existing(
-+        peak_path, model_filename, config, False, out_writer, use_plm=use_plm
++        peak_path, model_filename, config, False, out_writer, use_peppr=use_peppr
 +    )
  
  
@@ -169,7 +169,7 @@ index 4295682..09a9a05 100644
 +    peak_path: str,
 +    model_filename: str,
 +    config: Dict[str, Any],
-+    use_plm: bool = False,
++    use_peppr: bool = False,
 +) -> None:
      """
      Evaluate peptide sequence predictions from a trained ContraNovo model.
@@ -178,12 +178,12 @@ index 4295682..09a9a05 100644
          The file name of the model weights (.ckpt file).
      config : Dict[str, Any]
          The configuration options.
-+    use_plm : bool
++    use_peppr : bool
 +        If True, fuse pepLM predictions with the ContraNovo decoder logits
 +        during beam search.
      """
 -    _execute_existing(peak_path, model_filename, config, True)
-+    _execute_existing(peak_path, model_filename, config, True, use_plm=use_plm)
++    _execute_existing(peak_path, model_filename, config, True, use_peppr=use_peppr)
  
  
  def _execute_existing(
@@ -191,7 +191,7 @@ index 4295682..09a9a05 100644
      config: Dict[str, Any],
      annotated: bool,
      out_writer=None,
-+    use_plm: bool = False,
++    use_peppr: bool = False,
  ) -> None:
      """
      Predict peptide sequences with a trained ContraNovo model with/without
@@ -199,7 +199,7 @@ index 4295682..09a9a05 100644
          n_beams=config["n_beams"],
          n_log=config["n_log"],
          out_writer=out_writer,
-+        use_plm=use_plm,
++        use_peppr=use_peppr,
      )
      # Read the MS/MS spectra for which to predict peptide sequences.
      if annotated:
@@ -302,7 +302,7 @@ index 0000000..aa706c3
 +        default=os.path.join(os.path.dirname(__file__), "ContraNovo", "config.yaml"),
 +    )
 +    parser.add_argument(
-+        "--use_plm",
++        "--use_peppr",
 +        type=lambda value: str(value).lower() in ("1", "true", "yes", "y"),
 +        default=False,
 +        help="Fuse pepLM predictions with ContraNovo during beam search.",
@@ -328,7 +328,7 @@ index 0000000..aa706c3
 +        args.model,
 +        config,
 +        writer,
-+        use_plm=args.use_plm,
++        use_peppr=args.use_peppr,
 +    )
 +    writer.save()
 +    print(f"Wrote {len(writer.psms)} PSMs to {args.out}")
@@ -498,7 +498,7 @@ index 0000000..0702e07
 +        n_beams=config["n_beams"],
 +        n_log=config["n_log"],
 +        out_writer=None,
-+        use_plm=False,
++        use_peppr=False,
 +    )
 +    model.eval()
 +    model.to(args.device)

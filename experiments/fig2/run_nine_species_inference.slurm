@@ -117,7 +117,7 @@ for sp in "${SPECIES_LIST[@]}"; do
   echo "================================================"
   DNPS_SPECIES="$sp" \
     "$PYTHON_BIN" peppr/inference.py auto \
-      --dataset NINE_SPECIES_DATASET --use-plm true
+      --dataset NINE_SPECIES_DATASET --use-peppr true
   echo "[$sp] done"
   echo
 done

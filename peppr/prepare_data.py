@@ -726,7 +726,7 @@ def run_casanovo_teacher_for_mgfs(
         mztab_basename,
         "--teacher_forcing",
         "true",
-        "--use_plm",
+        "--use_peppr",
         "false",
         "-e",
         *mgf_paths,

@@ -28,7 +28,7 @@ The install step applies `casanovo_integration.patch`, which adds the fusion
 hooks to the Casanovo v5 submodule (it depends only on `peppr` being
 importable — `from peppr.model import load_plm_model, load_fusion_model`):
 
-- a `--use_plm` flag on `casanovo sequence` (`casanovo.py`),
+- a `--use_peppr` flag on `casanovo sequence` (`casanovo.py`),
 - pepLM + fusion-head loading and fusion re-scoring inside beam search
 (`denovo/model.py`),
 - teacher-score dumping and PSM/mzTab plumbing used to build fusion training data
@@ -168,7 +168,7 @@ Swap the pepLM by setting `DNPS_PLM_CKPT_PATH` (or `DNPS_PLM_SPECIES`) at infere
 ## 3. Run inference (Casanovo + pepLM)
 
 With the pepLM and fusion-head checkpoints in place, run the patched Casanovo with
-`--use_plm`:
+`--use_peppr`:
 
 ```bash
 DNPS_PLM_CKPT_PATH="$DNPS_DATA_PATH/models/human_iso/plm_ckpt.pt" \
@@ -176,12 +176,12 @@ DNPS_FUSION_MODEL_PATH="$DNPS_DATA_PATH/models/human_iso_asymbnln/fusion_model.p
 casanovo sequence \
     -m https://github.com/Noble-Lab/casanovo/releases/download/v5.0.0/casanovo_v5_0_0.ckpt \
     -c casanovo/casanovo/config.yaml \
-    --teacher_forcing false --use_plm true \
+    --teacher_forcing false --use_peppr true \
     -d output_dir -o results \
     -f spectra.mgf
 ```
 
-`--use_plm false` reproduces the plain Casanovo baseline. The full evaluation
+`--use_peppr false` reproduces the plain Casanovo baseline. The full evaluation
 pipeline (both arms over all benchmark datasets) is orchestrated by
 `peppr/inference.py auto`; `experiments/fig2/run_nine_species_inference.slurm` is the
 SLURM entry point for the nine-species benchmark (`same`/`cross` arms), and

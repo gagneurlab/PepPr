@@ -17,7 +17,7 @@
 # run_kol_eval.sh) because of their species/model-path specialisation.
 #
 # Usage:
-#   sbatch experiments/fig3/run_inference.slurm <DATASET_NAME> [--use-plm true|false|both]
+#   sbatch experiments/fig3/run_inference.slurm <DATASET_NAME> [--use-peppr true|false|both]
 #
 # Example (ProteomeTools SAAV, both arms):
 #   sbatch experiments/fig3/run_inference.slurm PROTEOMETOOLS_SAAV_DATASET
@@ -39,11 +39,11 @@ export TMUX="${TMUX:-noninteractive}"
 set -euo pipefail
 cd "$REPO_ROOT"
 
-DATASET="${1:?usage: run_inference.slurm <DATASET_NAME> [--use-plm true|false|both]}"
+DATASET="${1:?usage: run_inference.slurm <DATASET_NAME> [--use-peppr true|false|both]}"
 shift || true
-USE_PLM="both"
-if [[ "${1:-}" == "--use-plm" ]]; then
-  USE_PLM="${2:?--use-plm needs a value}"; shift 2
+USE_PEPPR="both"
+if [[ "${1:-}" == "--use-peppr" ]]; then
+  USE_PEPPR="${2:?--use-peppr needs a value}"; shift 2
 fi
 
 # Per-job isolated Lance cache (avoids commit conflicts between parallel jobs).
@@ -55,13 +55,13 @@ fi
 
 echo "=== Pre-flight ==="
 echo "dataset:   $DATASET"
-echo "use_plm:   $USE_PLM"
+echo "use_peppr:   $USE_PEPPR"
 echo "lance_dir: $DNPS_LANCE_DIR  (per-job, isolated)"
 [[ -n "${DNPS_MGF_SHARD:-}" ]] && echo "shard:     $DNPS_MGF_SHARD"
 echo
 
 if declare -F conda >/dev/null; then conda activate "${DNPS_CONDA_ENV:-khsam}"; fi
 
-"$PYTHON_BIN" peppr/inference.py auto --dataset "$DATASET" --use-plm "$USE_PLM"
+"$PYTHON_BIN" peppr/inference.py auto --dataset "$DATASET" --use-peppr "$USE_PEPPR"
 
 echo "=== Done ==="
