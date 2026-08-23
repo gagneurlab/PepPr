@@ -12,7 +12,7 @@ Backbone selection only swaps file paths; the fusion head architecture
 (asymmetric BN-cas + LN-plm) and loss are identical across backbones.
 
 The fusion and null heads are trained exclusively on the canonical
-MassIVE-KB PSM corpus configured in :mod:`peptide_priors.const`.
+MassIVE-KB PSM corpus configured in :mod:`peppr.const`.
 
 Optional augmentations
 ----------------------
@@ -30,8 +30,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
 import wandb
-from peptide_priors import const
-from peptide_priors.model import FusionModel
+from peppr import const
+from peppr.model import FusionModel
 
 # Backbone selection: ``casanovo`` (default) or ``contranovo``. The fusion
 # head architecture and loss are identical; only the input-side teacher

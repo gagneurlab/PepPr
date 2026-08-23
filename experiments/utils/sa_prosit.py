@@ -29,7 +29,7 @@ import pandas as pd
 from depthcharge.primitives import Peptide as _DepthchargePeptide
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peptide_priors.const import PROJECT_ROOT
+from peppr.const import PROJECT_ROOT
 
 CACHE_PATH = os.path.join(PROJECT_ROOT, "prosit_sa_cache.parquet")
 

@@ -25,7 +25,7 @@ from experiments.utils.evaluation import (
     MASSIVEKB_MASSES,
     load_mztab_with_mgf,
 )
-from peptide_priors.const import (
+from peppr.const import (
     COLOR_CASANOVO as COLOR_DNPS,
     COLOR_HISTOGRAM_GRAY,
     COLOR_PP as COLOR_HYBRID,

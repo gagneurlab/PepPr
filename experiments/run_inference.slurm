@@ -11,7 +11,7 @@
 #SBATCH --exclude=ouga08,ouga09,ouga05,ouga06,ouga26
 #
 # General Casanovo +/- PepPr inference on a registered benchmark dataset, via
-# peptide_priors/inference.py auto. One driver for every DatasetPaths defined in
+# peppr/inference.py auto. One driver for every DatasetPaths defined in
 # const.py (e.g. PROTEOMETOOLS_SAAV_DATASET). The nine-species and Kingdoms-of-
 # Life benchmarks have their own drivers (run_nine_species_inference.slurm,
 # run_kol_eval.sh) because of their species/model-path specialisation.
@@ -62,6 +62,6 @@ echo
 
 if declare -F conda >/dev/null; then conda activate "${DNPS_CONDA_ENV:-khsam}"; fi
 
-"$PYTHON_BIN" peptide_priors/inference.py auto --dataset "$DATASET" --use-plm "$USE_PLM"
+"$PYTHON_BIN" peppr/inference.py auto --dataset "$DATASET" --use-plm "$USE_PLM"
 
 echo "=== Done ==="

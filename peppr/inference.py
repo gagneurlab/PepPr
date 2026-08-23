@@ -4,9 +4,9 @@ import sys
 import os
 import re
 import tempfile
-from peptide_priors import const
+from peppr import const
 from tqdm import tqdm
-from peptide_priors.model import load_plm_model, load_fusion_model
+from peppr.model import load_plm_model, load_fusion_model
 import glob
 
 
@@ -103,13 +103,13 @@ elif model_type == 'contranovo':
             "run prepare_data first or set DNPS_SPECIES correctly."
         )
 
-    # ContraNovo's model.py imports peptide_priors for the PLM/fusion loaders, but
-    # the khsam_contranovo env doesn't have peptide_priors installed. Expose this
+    # ContraNovo's model.py imports peppr for the PLM/fusion loaders, but
+    # the khsam_contranovo env doesn't have peppr installed. Expose this
     # checkout on PYTHONPATH for the subprocess so the import resolves.
-    peptide_priors_root = const.PROJECT_ROOT
+    peppr_root = const.PROJECT_ROOT
     existing_pp = os.environ.get("PYTHONPATH", "")
     sub_pythonpath = (
-        f"{peptide_priors_root}:{existing_pp}" if existing_pp else peptide_priors_root
+        f"{peppr_root}:{existing_pp}" if existing_pp else peppr_root
     )
 
     for use_plm in ("false", "true"):

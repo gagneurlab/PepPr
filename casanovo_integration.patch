@@ -261,7 +261,7 @@ index b6694fd..45f9793 100644
  from ..denovo.transformers import PeptideDecoder, SpectrumEncoder
  from . import evaluate
 -
-+from peptide_priors.model import load_plm_model, load_fusion_model
++from peppr.model import load_plm_model, load_fusion_model
  
  logger = logging.getLogger("casanovo")
  

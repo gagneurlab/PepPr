@@ -28,7 +28,7 @@ from experiments.utils.evaluation import (
     NINE_SPECIES_COLOR_DNPS, NINE_SPECIES_COLOR_PP,
     count_mgf_spectra,
 )
-from peptide_priors.const import PROJECT_ROOT, result_run_path
+from peppr.const import PROJECT_ROOT, result_run_path
 from sklearn.metrics import auc
 
 # Map 9-species keys to their results directory (for the mztab → MGF spectra

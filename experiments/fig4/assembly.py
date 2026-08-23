@@ -39,7 +39,7 @@ from dataclasses import dataclass
 import npysearch as npy
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peptide_priors import const
+from peppr import const
 from experiments.fig4.references import (
     MAB_SPECS, find_mztab, read_fasta_with_regions, il_fold,
 )

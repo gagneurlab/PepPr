@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Evaluate Casanovo and Casanovo + a chosen pepLM (PP) on Kingdoms-of-Life
 species, using the ProForma-annotated MGFs produced by
-``peptide_priors.prepare_data.prepare_kol_species_dataset()``.
+``peppr.prepare_data.prepare_kol_species_dataset()``.
 
 For each ``--species`` (e.g. human, mouse, …):
   1. Read the archived, fixed 10k-spectrum subset from
@@ -34,11 +34,11 @@ from pathlib import Path
 
 import numpy as np
 
-# Resolve per-pepLM fusion weights (see peptide_priors.const.FUSION_MODEL_PATH).
+# Resolve per-pepLM fusion weights (see peppr.const.FUSION_MODEL_PATH).
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
-from peptide_priors.const import (  # noqa: E402
+from peppr.const import (  # noqa: E402
     CASANOVO_CONFIG_YAML,
     KOL_RESULTS_DIR,
     KOL_SUBSETS_DIR,

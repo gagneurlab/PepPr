@@ -47,9 +47,9 @@ index 4610f6a..fde245c 100644
  from . import evaluate
  from ..denovo.clipmodel import PeptideEncoder
  
-+from peptide_priors.model import load_plm_model, load_fusion_model
-+from peptide_priors.const import build_contranovo_translation
-+from peptide_priors import const as dnps_const
++from peppr.model import load_plm_model, load_fusion_model
++from peppr.const import build_contranovo_translation
++from peppr import const as dnps_const
 +
  
  logger = logging.getLogger("ContraNovo")
