@@ -16,7 +16,7 @@ import sys
 
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peptide_priors import const
+from peppr import const
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")

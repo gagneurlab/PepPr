@@ -171,18 +171,18 @@ PYEOF
   sed "s|^lance_dir:.*|lance_dir: $res_dir/lance_${arm}_${job_tag}|" \
       "$REPO_ROOT/casanovo/casanovo/config.yaml" > "$config"
 
-  local use_plm=false out_tag
+  local use_peppr=false out_tag
   case "$arm" in
     noplm)
       out_tag="casanovo_${tag}_noplm_${job_tag}" ;;
     human_iso)
-      use_plm=true
+      use_peppr=true
       export DNPS_PLM_CKPT_PATH="$data/models/human_iso/plm_ckpt.pt"
       export DNPS_FUSION_MODEL_PATH="$data/models/casanovo/fusion_model.pth"
       export DNPS_NULL_MODEL_PATH="$data/models/casanovo/null_model.pth"
       out_tag="casanovo_${tag}_humaniso_plm_${job_tag}" ;;
     germline)
-      use_plm=true
+      use_peppr=true
       local sp
       case "$mab_id" in
         IgG1_Human*|Herceptin|Trastuzumab) sp=human ;;
@@ -196,9 +196,9 @@ PYEOF
     *) echo "unknown arm '$arm'" >&2; exit 2 ;;
   esac
 
-  echo "=== Casanovo: $dataset / $arm (use_plm=$use_plm) ==="
+  echo "=== Casanovo: $dataset / $arm (use_peppr=$use_peppr) ==="
   echo "eval MGF: $eval_mgf ($(grep -c '^BEGIN IONS' "$eval_mgf") spectra)"
-  [[ "$use_plm" == true ]] && echo "pepLM:    $DNPS_PLM_CKPT_PATH"
+  [[ "$use_peppr" == true ]] && echo "pepLM:    $DNPS_PLM_CKPT_PATH"
 
   if declare -F conda >/dev/null; then conda activate "${DNPS_CONDA_ENV:-khsam}"; fi
   cd "$res_dir"
@@ -207,7 +207,7 @@ PYEOF
 
   "$CASANOVO_BIN" sequence \
     -m "$ckpt" -c "$config" -d "$res_dir" -o "$out_tag" \
-    --teacher_forcing false --use_plm "$use_plm" -f \
+    --teacher_forcing false --use_peppr "$use_peppr" -f \
     "$eval_mgf" 2>&1 | tee "$res_dir/${out_tag}.log"
   ls -lh "$res_dir/${out_tag}".mztab 2>/dev/null
 }

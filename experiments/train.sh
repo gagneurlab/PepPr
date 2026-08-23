@@ -11,7 +11,7 @@
 #SBATCH --exclude=ouga08,ouga09,ouga05,ouga06,ouga26
 #
 # One driver for training the method's models. The model code lives in
-# peptide_priors/ (train_peptide_prior_model.py, train_fusion_head.py, prepare_data.py);
+# peppr/ (train_peptide_prior_model.py, train_fusion_head.py, prepare_data.py);
 # this script sets the per-target environment and generates any missing training data.
 #
 # Usage:
@@ -46,8 +46,8 @@ gen_if_missing() {
   # Generate pepLM training data only if the X/Y tensors are absent.
   "$PYTHON_BIN" -c "
 import os
-from peptide_priors import const
-from peptide_priors.prepare_data import generate_plm_training_data
+from peppr import const
+from peppr.prepare_data import generate_plm_training_data
 os.makedirs(const.PLM_RUN_PATH, exist_ok=True)
 print(f'FASTA_PATH={const.FASTA_PATH}')
 print(f'PLM_SEQ_X_PATH={const.PLM_SEQ_X_PATH}')
@@ -64,7 +64,7 @@ case "$TARGET" in
     export DNPS_SPECIES="$SP" DNPS_PLM_SPECIES="$SP"
     activate_env
     gen_if_missing
-    "$PYTHON_BIN" peptide_priors/train_peptide_prior_model.py
+    "$PYTHON_BIN" peppr/train_peptide_prior_model.py
     ;;
 
   antibody-plm)
@@ -78,7 +78,7 @@ case "$TARGET" in
     mkdir -p "$DNPS_DATA_PATH/$SPECIES"
     activate_env
     gen_if_missing
-    "$PYTHON_BIN" peptide_priors/train_peptide_prior_model.py
+    "$PYTHON_BIN" peppr/train_peptide_prior_model.py
     echo "Done. $SPECIES pepLM checkpoint: $DNPS_DATA_PATH/$SPECIES/plm_ckpt.pt"
     ;;
 
@@ -90,10 +90,10 @@ case "$TARGET" in
     export DNPS_FUSION_MODEL_PATH="$DNPS_DATA_PATH/models/casanovo/fusion_model_asymbnln.pth"
     export DNPS_NULL_MODEL_PATH="$DNPS_DATA_PATH/models/casanovo/null_model_asymbnln.pth"
     # Teacher tensors (Casanovo + pepLM logits, fusion targets) must be generated
-    # first via `python peptide_priors/prepare_data.py`; they are not in the archive.
+    # first via `python peppr/prepare_data.py`; they are not in the archive.
     # train_fusion_head.py reads them from their const-defined paths and errors if absent.
     activate_env
-    "$PYTHON_BIN" peptide_priors/train_fusion_head.py
+    "$PYTHON_BIN" peppr/train_fusion_head.py
     ls -lh "$DNPS_FUSION_MODEL_PATH" "$DNPS_NULL_MODEL_PATH"
     ;;
 
@@ -121,14 +121,14 @@ case "$TARGET" in
         ;;
       fusion_data)
         activate_env
-        "$PYTHON_BIN" -c "from peptide_priors.prepare_data import generate_contranovo_fusion_files; generate_contranovo_fusion_files()"
+        "$PYTHON_BIN" -c "from peppr.prepare_data import generate_contranovo_fusion_files; generate_contranovo_fusion_files()"
         ;;
       plm_teacher)
         activate_env
         "$PYTHON_BIN" -c "
 import torch
-from peptide_priors import const
-from peptide_priors.model import load_plm_model
+from peppr import const
+from peppr.model import load_plm_model
 from tqdm import tqdm
 torch.manual_seed(const.SEED); torch.cuda.manual_seed(const.SEED)
 torch.set_float32_matmul_precision('high')
@@ -150,7 +150,7 @@ run(const.CONTRANOVO_PLM_PSM_X_TEST_PATH,  const.CONTRANOVO_PLM_PSM_TEACHER_SCOR
         export DNPS_CONTRANOVO_NULL_MODEL_PATH="$DNPS_DATA_PATH/models/casanovo/contranovo_null_model.pth"
         export DNPS_FUSION_PLM_TOP2_SWAP_FRAC=0.5 DNPS_FUSION_PLM_RAND_SWAP_FRAC=0.0 DNPS_FUSION_EPOCHS=16
         activate_env
-        "$PYTHON_BIN" -m peptide_priors.train_fusion_head
+        "$PYTHON_BIN" -m peppr.train_fusion_head
         ls -lh "$DNPS_CONTRANOVO_FUSION_MODEL_PATH" "$DNPS_CONTRANOVO_NULL_MODEL_PATH"
         ;;
       *) echo "unknown contranovo-fusion mode '$MODE'" >&2; exit 2 ;;

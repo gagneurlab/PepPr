@@ -24,7 +24,7 @@ from sklearn.metrics import auc
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
 from experiments.fig3.panelA_curves import load_panelA_curves
-from peptide_priors.const import COLOR_GREEN, PROJECT_ROOT
+from peppr.const import COLOR_GREEN, PROJECT_ROOT
 
 
 def plot_panelA_supp(ax):

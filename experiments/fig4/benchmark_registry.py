@@ -17,7 +17,7 @@ import sys
 from dataclasses import dataclass
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peptide_priors.const import (
+from peppr.const import (
     MABS_BENCHMARK_DIR,
     MABS_REFERENCES_DIR,
     MABS_RESULTS_DIR,

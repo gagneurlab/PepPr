@@ -4,9 +4,9 @@ import sys
 import os
 import re
 import tempfile
-from peptide_priors import const
+from peppr import const
 from tqdm import tqdm
-from peptide_priors.model import load_plm_model, load_fusion_model
+from peppr.model import load_plm_model, load_fusion_model
 import glob
 
 
@@ -103,37 +103,37 @@ elif model_type == 'contranovo':
             "run prepare_data first or set DNPS_SPECIES correctly."
         )
 
-    # ContraNovo's model.py imports peptide_priors for the PLM/fusion loaders, but
-    # the khsam_contranovo env doesn't have peptide_priors installed. Expose this
+    # ContraNovo's model.py imports peppr for the PLM/fusion loaders, but
+    # the khsam_contranovo env doesn't have peppr installed. Expose this
     # checkout on PYTHONPATH for the subprocess so the import resolves.
-    peptide_priors_root = const.PROJECT_ROOT
+    peppr_root = const.PROJECT_ROOT
     existing_pp = os.environ.get("PYTHONPATH", "")
     sub_pythonpath = (
-        f"{peptide_priors_root}:{existing_pp}" if existing_pp else peptide_priors_root
+        f"{peppr_root}:{existing_pp}" if existing_pp else peppr_root
     )
 
-    for use_plm in ("false", "true"):
-        suffix = "fusion" if use_plm == "true" else "dnps"
+    for use_peppr in ("false", "true"):
+        suffix = "fusion" if use_peppr == "true" else "dnps"
         out_dir = os.path.join(out_root, f"{const.ACTIVE_SPECIES}_{suffix}")
         os.makedirs(out_dir, exist_ok=True)
         for mgf in mgf_files:
             base = os.path.splitext(os.path.basename(mgf))[0]
             out_csv = os.path.join(out_dir, f"{base}.csv")
             if os.path.exists(out_csv) and os.path.getsize(out_csv) > 0:
-                print(f"[skip] {use_plm=} {base}: already exists")
+                print(f"[skip] {use_peppr=} {base}: already exists")
                 continue
             command = (
                 f"PYTHONPATH={sub_pythonpath} "
                 f"{contranovo_python} {run_denovo} "
                 f"--peak_path={mgf} --model={contranovo_ckpt} "
                 f"--config={contranovo_config} --out={out_csv} "
-                f"--use_plm={use_plm}"
+                f"--use_peppr={use_peppr}"
             )
             print(command)
             ret = os.system(command)
             if ret != 0:
                 raise RuntimeError(
-                    f"ContraNovo run failed (exit={ret}) on {mgf} (use_plm={use_plm})"
+                    f"ContraNovo run failed (exit={ret}) on {mgf} (use_peppr={use_peppr})"
                 )
 elif model_type == 'auto':
     parser = argparse.ArgumentParser(prog="inference.py auto")
@@ -142,7 +142,7 @@ elif model_type == 'auto':
         help="Names of DatasetPaths attributes in const.py to run inference on.",
     )
     parser.add_argument(
-        "--use-plm", choices=["true", "false", "both"], default="both",
+        "--use-peppr", choices=["true", "false", "both"], default="both",
         help="Run with PLM fusion (true), without (false), or both (default).",
     )
     args = parser.parse_args(sys.argv[2:])
@@ -153,13 +153,13 @@ elif model_type == 'auto':
             raise ValueError(f"No dataset named {name!r} in const.py")
         datasets.append(getattr(const, name))
 
-    if args.use_plm == "both":
-        use_plm_modes = ["true", "false"]
+    if args.use_peppr == "both":
+        use_peppr_modes = ["true", "false"]
     else:
-        use_plm_modes = [args.use_plm]
+        use_peppr_modes = [args.use_peppr]
 
     print(f"=== Auto inference for species: {const.ACTIVE_SPECIES} ===")
-    print(f"Datasets: {[d.name for d in datasets]}  use_plm={use_plm_modes}")
+    print(f"Datasets: {[d.name for d in datasets]}  use_peppr={use_peppr_modes}")
 
     casanovo_config = resolve_casanovo_config()
     if casanovo_config != CASANOVO_CONFIG_DEFAULT:
@@ -177,18 +177,18 @@ elif model_type == 'auto':
         mgf_files = ' '.join(shard_mgfs)
         if not mgf_files:
             raise FileNotFoundError(f"No MGFs matched {dataset.final_mgf_glob!r}")
-        for use_plm in use_plm_modes:
-            mztab_path = dataset.mztab_path_fusion if use_plm == "true" else dataset.mztab_path_dnps
+        for use_peppr in use_peppr_modes:
+            mztab_path = dataset.mztab_path_fusion if use_peppr == "true" else dataset.mztab_path_dnps
             mztab_dir = os.path.dirname(mztab_path)
             os.makedirs(mztab_dir, exist_ok=True)
             slurm_id = os.environ.get('SLURM_JOB_ID', '')
             mztab_basename = os.path.basename(mztab_path).replace('.mztab', '')
             if slurm_id:
                 mztab_basename += f'_{slurm_id}'
-            command = f"casanovo sequence -m https://github.com/Noble-Lab/casanovo/releases/download/v5.0.0/casanovo_v5_0_0.ckpt -c {casanovo_config} -d {mztab_dir} -o {mztab_basename} --teacher_forcing false --use_plm {use_plm} -e {mgf_files}"
+            command = f"casanovo sequence -m https://github.com/Noble-Lab/casanovo/releases/download/v5.0.0/casanovo_v5_0_0.ckpt -c {casanovo_config} -d {mztab_dir} -o {mztab_basename} --teacher_forcing false --use_peppr {use_peppr} -e {mgf_files}"
             print(command)
             ret = os.system(command)
             if ret != 0:
                 raise RuntimeError(
-                    f"casanovo failed (exit={ret}) on dataset={dataset.name}, use_plm={use_plm}"
+                    f"casanovo failed (exit={ret}) on dataset={dataset.name}, use_peppr={use_peppr}"
                 )

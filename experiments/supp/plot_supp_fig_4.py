@@ -31,7 +31,7 @@ from experiments.utils.evaluation import (
 )
 # Reuse the panel renderer so supp_fig_3 and supp_fig_4 are identical in style.
 from plot_supp_fig_3 import _plot_panel, _n_total_for, _rescale
-from peptide_priors.const import PROJECT_ROOT
+from peppr.const import PROJECT_ROOT
 
 plt.rcParams.update({
     "text.color": "black", "axes.labelcolor": "black",

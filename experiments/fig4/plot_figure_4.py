@@ -15,7 +15,7 @@ import argparse, csv, os, re, sys
 from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peptide_priors import const
+from peppr import const
 
 import numpy as np
 import pandas as pd
@@ -31,7 +31,7 @@ from experiments.utils.evaluation import (
     load_mztab_with_mgf, plot_sequence_diff, plot_spectrum_on_ax, _AA_RE,
     annotate_missing_ion_gap, _ion_mz, _B_ION_COLOR,
 )
-from peptide_priors.const import COLOR_LIGHT_GRAY, COLOR_PP, COLOR_RED
+from peppr.const import COLOR_LIGHT_GRAY, COLOR_PP, COLOR_RED
 from experiments.fig4.references import (
     ARM_STYLE,
     MAB_SPECS,

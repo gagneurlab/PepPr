@@ -25,9 +25,10 @@ cd ..
 ### Integration patches
 
 The install step applies `casanovo_integration.patch`, which adds the integration
-hooks to Casanovo:
+hooks to Casanovo (it depends only on `peppr` being importable —
+`from peppr.model import load_plm_model, load_fusion_model`):
 
-- a `--use_plm` flag on `casanovo sequence` (`casanovo.py`),
+- a `--use_peppr` flag on `casanovo sequence` (`casanovo.py`),
 - pepLM + fusion-head loading and fusion re-scoring inside beam search
 (`denovo/model.py`),
 - teacher-score dumping and PSM/mzTab plumbing used to build fusion training data
@@ -35,7 +36,7 @@ hooks to Casanovo:
 
 Casanovo is the worked example here, but the same recipe can be used for other
 DNPS backbones: add the pepLM/fusion hooks to that model's beam
-search, have it `from peptide_priors.model import load_plm_model, load_fusion_model`,
+search, have it `from peppr.model import load_plm_model, load_fusion_model`,
 and point `DNPS_FUSION_BACKBONE` at it. A ready-made ContraNovo integration,
 `contranovo_integration.patch`, is included — apply it the same way
 (`cd ContraNovo && git apply ../contranovo_integration.patch`) to use the
@@ -96,6 +97,19 @@ Paths and experiment choices are selected by environment variables:
 | `DNPS_CONTRANOVO_PYTHON`      | Python executable for the optional ContraNovo environment   | current Python   |
 | `DNPS_THERMO_RAW_FILE_PARSER` | optional ThermoRawFileParser executable                     | unset            |
 
+### Running on a cluster
+
+The `experiments/` scripts that carry `#SBATCH` headers — `train.sh`,
+`run_inference.slurm`, `fig2/run_baseline.sh`, `fig2/run_nine_species_inference.slurm`,
+`fig3/run_kol_eval.sh`, and `fig4/run_mab.sh` — are the SLURM entry points we
+used. Their `#SBATCH` directives are specific to our cluster: the
+`noninterruptive` partition, the `--exclude=ouga…` node list, and the GPU /
+memory / time requests. Adjust the partition, node, and resource lines for your
+own scheduler, or run the scripts directly as plain bash on a machine with a GPU
+(each one works either way). A few helper scripts (e.g.
+`fig3/regenerate_figure_3.sh`) also reference lab-internal data paths that you
+will need to repoint.
+
 ## 1. Train a peptide prior model
 
 Generate the training corpus (in-silico digest of the FASTA file →
@@ -103,11 +117,11 @@ Generate the training corpus (in-silico digest of the FASTA file →
 
 ```bash
 # Build training data for the species' proteome.
-DNPS_SPECIES=human python peptide_priors/prepare_data.py
+DNPS_SPECIES=human python peppr/prepare_data.py
 
 # Train the pepLM (writes the checkpoint under models/; override with
 # DNPS_PLM_CKPT_PATH). Hyperparameters live in const.py (PLM_* knobs).
-DNPS_SPECIES=human python peptide_priors/train_peptide_prior_model.py
+DNPS_SPECIES=human python peppr/train_peptide_prior_model.py
 ```
 
 On SLURM these two steps are wrapped by `experiments/train.sh`:
@@ -129,12 +143,12 @@ assigns to the ground-truth peptides of the archived MassIVE-KB corpus.
 # (a) Generate fusion training tensors: Casanovo teacher logits + pepLM teacher
 #     logits over the training corpus (MassIVE-KB by default). This runs the
 #     patched Casanovo to dump teacher scores, then assembles the fusion inputs.
-DNPS_SPECIES=human python peptide_priors/prepare_data.py
+DNPS_SPECIES=human python peppr/prepare_data.py
 
 # (b) Train the fusion head + the null (backbone-only) baseline.
 #     DNPS_FUSION_BACKBONE=casanovo (default) writes DNPS_FUSION_MODEL_PATH and
 #     DNPS_NULL_MODEL_PATH.
-DNPS_FUSION_BACKBONE=casanovo python peptide_priors/train_fusion_head.py
+DNPS_FUSION_BACKBONE=casanovo python peppr/train_fusion_head.py
 ```
 
 On SLURM: `experiments/train.sh fusion` (Casanovo head) or
@@ -147,7 +161,7 @@ Swap the prior by setting `DNPS_PLM_CKPT_PATH` (or `DNPS_PLM_SPECIES`) at infere
 ## 3. Run inference (Casanovo + pepLM)
 
 With the prior model and fusion-head checkpoints in place, run the patched Casanovo with
-`--use_plm`:
+`--use_peppr`:
 
 ```bash
 DNPS_PLM_CKPT_PATH="$DNPS_DATA_PATH/models/human_iso/plm_ckpt.pt" \
@@ -155,15 +169,16 @@ DNPS_FUSION_MODEL_PATH="$DNPS_DATA_PATH/models/human_iso_asymbnln/fusion_model.p
 casanovo sequence \
     -m https://github.com/Noble-Lab/casanovo/releases/download/v5.0.0/casanovo_v5_0_0.ckpt \
     -c casanovo/casanovo/config.yaml \
-    --teacher_forcing false --use_plm true \
+    --teacher_forcing false --use_peppr true \
     -d output_dir -o results \
     -f spectra.mgf
 ```
 
-`--use_plm false` reproduces the plain Casanovo baseline. The full evaluation
+`--use_peppr false` reproduces the plain Casanovo baseline. The full evaluation
 pipeline (both arms over all benchmark datasets) is orchestrated by
-`peptide_priors/inference.py auto`; `experiments/fig2/run_nine_species_inference.slurm` is the
-SLURM entry point for the nine-species benchmark (`same`/`cross` arms).
+`peppr/inference.py auto`; `experiments/fig2/run_nine_species_inference.slurm` is the
+SLURM entry point for the nine-species benchmark (`same`/`cross` arms), and
+`experiments/fig3/run_kol_eval.sh` for the Kingdoms-of-Life generalization sweep.
 
 ## 4. Reproduce the paper figures
 

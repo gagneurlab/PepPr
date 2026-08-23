@@ -40,7 +40,7 @@ from experiments.utils.evaluation import (
     NINE_SPECIES_TITLE_FONTSIZE,
     NINE_SPECIES_COLOR_DNPS, NINE_SPECIES_COLOR_PP,
 )
-from peptide_priors.const import (
+from peppr.const import (
     COLOR_CASANOVO,
     COLOR_HISTOGRAM_GRAY,
     COLOR_PEACH,

@@ -29,7 +29,7 @@ from collections import defaultdict
 from itertools import product
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peptide_priors.const import FASTAS_DIR, MABS_REFERENCES_DIR
+from peppr.const import FASTAS_DIR, MABS_REFERENCES_DIR
 
 # https://www.imgt.org/download/GENE-DB/IMGTGENEDB-ReferenceSequences.fasta-AA-WithGaps-F%2BORF%2BinframeP
 ANTIBODY_DIR = MABS_REFERENCES_DIR

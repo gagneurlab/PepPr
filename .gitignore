@@ -1,7 +1,7 @@
 __pycache__/
 data/
 .gitmodules
-dnps_hybrid.egg-info/
+peppr.egg-info/
 REVIEWERS.md
 
 # --- regenerable outputs / data (canonical copies live in the Zenodo archive) ---

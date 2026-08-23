@@ -17,7 +17,7 @@ import spectrum_utils.spectrum as sus
 import spectrum_utils.plot as sup
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peptide_priors.const import COLOR_LIGHT_GRAY, COLOR_RED
+from peppr.const import COLOR_LIGHT_GRAY, COLOR_RED
 
 
 def plot_spectrum(mgf_path, scan, seq=None, out=None, title=None):

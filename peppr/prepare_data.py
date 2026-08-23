@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import torch
 from Bio import SeqIO
-from peptide_priors import const
+from peppr import const
 from typing import Optional, Tuple, TextIO
 from collections import defaultdict
 from tqdm import tqdm
@@ -726,7 +726,7 @@ def run_casanovo_teacher_for_mgfs(
         mztab_basename,
         "--teacher_forcing",
         "true",
-        "--use_plm",
+        "--use_peppr",
         "false",
         "-e",
         *mgf_paths,
