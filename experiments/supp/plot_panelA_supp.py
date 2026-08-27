@@ -58,7 +58,7 @@ def plot_panelA_supp(ax):
 def main():
     fig, ax = plt.subplots(figsize=(7.6, 6.2))
     plot_panelA_supp(ax)
-    out = os.path.join(PROJECT_ROOT, "figure_s_msfragger_curves.png")
+    out = os.path.join(PROJECT_ROOT, "supp_fig_6.png")
     fig.savefig(out, dpi=190, bbox_inches="tight")
     print("Saved", out)
 
