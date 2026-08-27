@@ -49,10 +49,13 @@ _PROSIT_MOD_NAMES = {
 _MOD_RE = re.compile(r"\[[^\]]+\]")
 
 # Vendored from depthcharge.primitives.Peptide.massivekb_to_proforma (depthcharge
-# 0.4.8). DNPS_benchmark_casa pins casanovo, which requires
-# `depthcharge-ms <0.3.0`, whose `primitives` module doesn't exist yet — so this
-# small, self-contained conversion is copied in rather than upgrading the shared
-# env's depthcharge and risking casanovo compatibility.
+# 0.4.8) so this module doesn't depend on depthcharge's internal `primitives`
+# API. `casanovo/pyproject.toml` pins `depthcharge-ms>=0.4.8,<0.5.0`, which does
+# provide it, but that pin isn't enforced anywhere outside the casanovo
+# submodule's own install step, so a `depthcharge-ms` already present in the
+# environment before that step (e.g. from an older per-model conda env) can
+# leave `primitives` missing or import-incompatible. This one function is
+# small enough to copy in rather than rely on it staying available.
 _MSKB_TO_UNIMOD = {
     "+42.011": "[Acetyl]-",
     "+43.006": "[Carbamyl]-",
