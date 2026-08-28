@@ -15,6 +15,7 @@ print(f"tokens per iteration will be: {tokens_per_iter:,}")
 print("CUDA available:", torch.cuda.is_available())
 print("Device:", torch.cuda.current_device())
 
+const.require_data_path("pepLM training")
 os.makedirs(const.RUN_PATH, exist_ok=True)
 os.makedirs(os.path.dirname(const.PLM_CHECKPOINT_PATH), exist_ok=True)
 torch.manual_seed(const.SEED)

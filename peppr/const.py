@@ -7,65 +7,94 @@ current_file_path = Path(__file__).resolve()
 current_dir = current_file_path.parent.parent
 PROJECT_ROOT = str(current_dir)
 
-# Portable Zenodo archive contract. DNPS_DATA_PATH points at the extracted
-# archive root; code and bundled configuration continue to resolve relative to
-# PROJECT_ROOT.
+# Data-archive contract. DNPS_DATA_PATH points at the extracted archive root;
+# code and bundled configuration continue to resolve relative to PROJECT_ROOT.
+#
+# It is OPTIONAL. Training, data preparation and the paper-reproduction
+# workflows all need it, but plain inference does not: point
+# DNPS_PLM_CKPT_PATH / DNPS_FUSION_MODEL_PATH / DNPS_NULL_MODEL_PATH at
+# checkpoints directly and `import peppr` works with no archive present.
+# Paths derived from the archive are None when it is unconfigured, so an
+# unset DNPS_DATA_PATH surfaces where the path is actually used rather than
+# at import time.
 _data_path = os.environ.get("DNPS_DATA_PATH")
-if not _data_path:
-    raise RuntimeError(
-        "DNPS_DATA_PATH is required; set it to the extracted Zenodo archive root."
-    )
-DATA_PATH = os.path.abspath(os.path.expanduser(_data_path))
-FASTAS_DIR = os.path.join(DATA_PATH, "fastas")
-TRAINING_DIR = os.path.join(DATA_PATH, "training")
-MASSIVEKB_TRAINING_DIR = os.path.join(TRAINING_DIR, "massivekb")
-BENCHMARKS_DIR = os.path.join(DATA_PATH, "benchmarks")
+DATA_PATH = os.path.abspath(os.path.expanduser(_data_path)) if _data_path else None
+
+
+def require_data_path(what: str = "this operation") -> str:
+    """Return DATA_PATH, or raise with an actionable message if it is unset."""
+    if DATA_PATH is None:
+        raise RuntimeError(
+            f"DNPS_DATA_PATH is required for {what}; set it to the extracted "
+            "data archive root. Inference alone does not need it if "
+            "DNPS_PLM_CKPT_PATH, DNPS_FUSION_MODEL_PATH and "
+            "DNPS_NULL_MODEL_PATH are set directly."
+        )
+    return DATA_PATH
+
+
+def _under_data(*parts: str) -> str | None:
+    """Join under the archive root, or None when it is not configured."""
+    return os.path.join(DATA_PATH, *parts) if DATA_PATH else None
+
+
+def _under(base: str | None, *parts: str) -> str | None:
+    """Join under an archive-derived base that may itself be None."""
+    return os.path.join(base, *parts) if base else None
+
+
+FASTAS_DIR = _under_data("fastas")
+TRAINING_DIR = _under_data("training")
+MASSIVEKB_TRAINING_DIR = _under_data("training", "massivekb")
+BENCHMARKS_DIR = _under_data("benchmarks")
 # Nine-species ProForma MGFs are included loose under external/nine_species/
-# in the extracted Zenodo release tarball.
-NINE_SPECIES_PATH = os.path.abspath(os.path.expanduser(
-    os.environ.get(
-        "DNPS_NINE_SPECIES_PATH",
-        os.path.join(DATA_PATH, "external", "nine_species"),
-    )
-))
+# in the extracted release tarball.
+_nine_species_env = os.environ.get("DNPS_NINE_SPECIES_PATH")
+NINE_SPECIES_PATH = (
+    os.path.abspath(os.path.expanduser(_nine_species_env))
+    if _nine_species_env
+    else _under_data("external", "nine_species")
+)
 # Compatibility alias retained for callers that treated this as a benchmark
 # root before the external-data boundary was made explicit.
 NINE_SPECIES_BENCHMARK_DIR = NINE_SPECIES_PATH
-PROTEOMETOOLS_SAAV_DIR = os.path.join(BENCHMARKS_DIR, "proteometools_saav")
-KOL_DATA_ROOT = os.path.join(BENCHMARKS_DIR, "kingdoms_of_life")
-KOL_SUBSETS_DIR = os.path.join(KOL_DATA_ROOT, "subsets")
-MABS_BENCHMARK_DIR = os.path.join(BENCHMARKS_DIR, "mabs")
-MODELS_DIR = os.path.join(DATA_PATH, "models")
-RESULTS_DIR = os.path.join(DATA_PATH, "results")
-KOL_RESULTS_DIR = os.path.join(RESULTS_DIR, "kingdoms_of_life")
-MABS_RESULTS_DIR = os.path.join(RESULTS_DIR, "mabs")
-METADATA_DIR = os.path.join(DATA_PATH, "metadata")
-MABS_METADATA_DIR = os.path.join(METADATA_DIR, "mabs")
-MABS_REFERENCES_DIR = os.path.join(MABS_METADATA_DIR, "references")
-MABS_ASSEMBLY_DIR = os.path.join(MABS_METADATA_DIR, "assembly")
-WORK_DIR = os.path.join(DATA_PATH, "work")
+PROTEOMETOOLS_SAAV_DIR = _under_data("benchmarks", "proteometools_saav")
+KOL_DATA_ROOT = _under_data("benchmarks", "kingdoms_of_life")
+KOL_SUBSETS_DIR = _under_data("benchmarks", "kingdoms_of_life", "subsets")
+MABS_BENCHMARK_DIR = _under_data("benchmarks", "mabs")
+MODELS_DIR = _under_data("models")
+RESULTS_DIR = _under_data("results")
+KOL_RESULTS_DIR = _under_data("results", "kingdoms_of_life")
+MABS_RESULTS_DIR = _under_data("results", "mabs")
+METADATA_DIR = _under_data("metadata")
+MABS_METADATA_DIR = _under_data("metadata", "mabs")
+MABS_REFERENCES_DIR = _under_data("metadata", "mabs", "references")
+MABS_ASSEMBLY_DIR = _under_data("metadata", "mabs", "assembly")
+WORK_DIR = _under_data("work")
 
 
 def model_run_path(run_name: str) -> str:
-    return os.path.join(MODELS_DIR, run_name)
+    return os.path.join(require_data_path("model paths"), "models", run_name)
 
 
 def result_run_path(run_name: str) -> str:
-    return os.path.join(RESULTS_DIR, run_name)
+    return os.path.join(require_data_path("result paths"), "results", run_name)
 
 
 def work_run_path(run_name: str) -> str:
-    return os.path.join(WORK_DIR, run_name)
+    return os.path.join(require_data_path("work paths"), "work", run_name)
 
 
 def nine_species_benchmark_dir(species: str) -> str:
+    if NINE_SPECIES_BENCHMARK_DIR is None:
+        require_data_path("the nine-species benchmark")
     return os.path.join(NINE_SPECIES_BENCHMARK_DIR, SPECIES[species]["benchmark_dir"])
 
 
 # Compatibility names used by the maintained antibody workflows.
-XA_NOVO_DIR = os.path.join(MABS_BENCHMARK_DIR, "xa_novo")
-NONTRYP_DIR = os.path.join(MABS_BENCHMARK_DIR, "nontryp")
-BESLIC_DIR = os.path.join(MABS_BENCHMARK_DIR, "beslic")
+XA_NOVO_DIR = _under(MABS_BENCHMARK_DIR, "xa_novo")
+NONTRYP_DIR = _under(MABS_BENCHMARK_DIR, "nontryp")
+BESLIC_DIR = _under(MABS_BENCHMARK_DIR, "beslic")
 
 # Shared plotting palette. Keep method colors stable across all figures.
 COLOR_ORANGE = "#ff6f30"
@@ -94,26 +123,26 @@ COLOR_XANOVO = COLOR_LIGHT_BLUE
 COLOR_DATABASE_SEARCH = COLOR_GREEN
 
 FIGURE_4_PATH = os.path.join(PROJECT_ROOT, "figure_4.png")
-FIGURE_4_EXAMPLE_MGF = os.path.join(
+FIGURE_4_EXAMPLE_MGF = _under(
     MABS_BENCHMARK_DIR, "xa_novo", "PXD060500_36H6", "mgf",
     "36H6-pepsin-HCD-20240524.mgf"
 )
 FIGURE_4_ASSEMBLY_TSV_PATHS = (
-    os.path.join(MABS_ASSEMBLY_DIR, "3arm_summary_solo_k7to11.tsv"),
-    os.path.join(MABS_ASSEMBLY_DIR, "3arm_summary_beslic_k7to11.tsv"),
+    _under(MABS_ASSEMBLY_DIR, "3arm_summary_solo_k7to11.tsv"),
+    _under(MABS_ASSEMBLY_DIR, "3arm_summary_beslic_k7to11.tsv"),
 )
 SUPP_FIGURE_5_PATH = os.path.join(PROJECT_ROOT, "supp_fig_5.png")
 FIGURE_4_MAB_REFERENCE_PATHS = {
-    "2B4": os.path.join(MABS_REFERENCES_DIR, "2B4_ref.fasta"),
-    "36H6": os.path.join(MABS_REFERENCES_DIR, "36H6_ref.fasta"),
-    "85F7": os.path.join(MABS_REFERENCES_DIR, "85F7_ref.fasta"),
-    "S2P6": os.path.join(MABS_REFERENCES_DIR, "S2P6_ref.fasta"),
-    "IgG1_Human_H": os.path.join(MABS_REFERENCES_DIR, "IgG1_Human_H_ref.fasta"),
-    "IgG1_Human_L": os.path.join(MABS_REFERENCES_DIR, "IgG1_Human_L_ref.fasta"),
-    "Herceptin": os.path.join(MABS_REFERENCES_DIR, "Herceptin_ref.fasta"),
-    "anti-FLAG-M2": os.path.join(MABS_REFERENCES_DIR, "anti-FLAG-M2_ref.fasta"),
-    "WIgG1_H": os.path.join(MABS_REFERENCES_DIR, "WIgG1_mouse_H_ref.fasta"),
-    "WIgG1_L": os.path.join(MABS_REFERENCES_DIR, "WIgG1_mouse_L_ref.fasta"),
+    "2B4": _under(MABS_REFERENCES_DIR, "2B4_ref.fasta"),
+    "36H6": _under(MABS_REFERENCES_DIR, "36H6_ref.fasta"),
+    "85F7": _under(MABS_REFERENCES_DIR, "85F7_ref.fasta"),
+    "S2P6": _under(MABS_REFERENCES_DIR, "S2P6_ref.fasta"),
+    "IgG1_Human_H": _under(MABS_REFERENCES_DIR, "IgG1_Human_H_ref.fasta"),
+    "IgG1_Human_L": _under(MABS_REFERENCES_DIR, "IgG1_Human_L_ref.fasta"),
+    "Herceptin": _under(MABS_REFERENCES_DIR, "Herceptin_ref.fasta"),
+    "anti-FLAG-M2": _under(MABS_REFERENCES_DIR, "anti-FLAG-M2_ref.fasta"),
+    "WIgG1_H": _under(MABS_REFERENCES_DIR, "WIgG1_mouse_H_ref.fasta"),
+    "WIgG1_L": _under(MABS_REFERENCES_DIR, "WIgG1_mouse_L_ref.fasta"),
 }
 
 
@@ -147,22 +176,22 @@ ACTIVE_SPECIES = os.environ.get("DNPS_SPECIES", "human")
 _species_cfg = SPECIES[ACTIVE_SPECIES]
 THERMO_RAW_FILE_PARSER = os.environ.get("DNPS_THERMO_RAW_FILE_PARSER")
 CONTRANOVO_PYTHON = os.environ.get("DNPS_CONTRANOVO_PYTHON")
-SMSNET_ROOT = os.environ.get(
-    "DNPS_SMSNET_ROOT", os.path.join(RESULTS_DIR, "baselines", "smsnet")
+SMSNET_ROOT = os.environ.get("DNPS_SMSNET_ROOT") or _under(
+    RESULTS_DIR, "baselines", "smsnet"
 )
 CASANOVO_CONFIG_YAML = os.path.join(current_dir, "casanovo", "casanovo", "config.yaml")
 CASANOVO_DEFAULT_CHECKPOINT = "https://github.com/Noble-Lab/casanovo/releases/download/v5.0.0/casanovo_v5_0_0.ckpt"
 CONTRANOVO_CONFIG_YAML = os.path.join(
     PROJECT_ROOT, "ContraNovo", "ContraNovo", "config.yaml"
 )
-KOL_STAGING_DIR = os.environ.get(
-    "DNPS_STAGING_DIR", os.path.join(WORK_DIR, "kingdoms_of_life", "staging")
+KOL_STAGING_DIR = os.environ.get("DNPS_STAGING_DIR") or _under(
+    WORK_DIR, "kingdoms_of_life", "staging"
 )
 RUN_NAME = _species_cfg["run_name"]
-RUN_PATH = work_run_path(RUN_NAME)
-MODEL_RUN_PATH = model_run_path(RUN_NAME)
-RESULT_RUN_PATH = result_run_path(RUN_NAME)
-FASTA_PATH = os.path.join(FASTAS_DIR, _species_cfg["fasta"])
+RUN_PATH = _under_data("work", RUN_NAME)
+MODEL_RUN_PATH = _under_data("models", RUN_NAME)
+RESULT_RUN_PATH = _under_data("results", RUN_NAME)
+FASTA_PATH = _under(FASTAS_DIR, _species_cfg["fasta"])
 # Human PepPr always uses the isoform-inclusive pepLM; nine-species benchmark
 # species "human" keeps the canonical proteome FASTA above.
 HUMAN_PEPPR_PLM = "human_iso"
@@ -170,13 +199,13 @@ HUMAN_PEPPR_FUSION_RUN = "human_iso_asymbnln"
 _default_plm_species = HUMAN_PEPPR_PLM if ACTIVE_SPECIES == "human" else ACTIVE_SPECIES
 PLM_SPECIES = os.environ.get("DNPS_PLM_SPECIES", _default_plm_species)
 _plm_species_cfg = SPECIES[PLM_SPECIES]
-PLM_RUN_PATH = work_run_path(_plm_species_cfg["run_name"])
-PLM_MODEL_RUN_PATH = model_run_path(_plm_species_cfg["run_name"])
-SHARED_RUN_PATH = work_run_path("massivekb")
-SHARED_MODEL_RUN_PATH = model_run_path("casanovo")
+PLM_RUN_PATH = _under_data("work", _plm_species_cfg["run_name"])
+PLM_MODEL_RUN_PATH = _under_data("models", _plm_species_cfg["run_name"])
+SHARED_RUN_PATH = _under_data("work", "massivekb")
+SHARED_MODEL_RUN_PATH = _under_data("models", "casanovo")
 _EXP_DIR = os.environ.get("DNPS_EXP_DIR")
-def _exp(default_path: str) -> str:
-    if _EXP_DIR is None:
+def _exp(default_path: str | None) -> str | None:
+    if _EXP_DIR is None or default_path is None:
         return default_path
     return os.path.join(_EXP_DIR, os.path.basename(default_path))
 
@@ -192,26 +221,28 @@ class DatasetPaths:
 
 # De novo runs on the GT-search 1%-FDR spectra (mgf_gt), which are labelled with the
 # ground-truth variant peptide and stored in ProForma form (Casanovo-tokenizable).
-PROTEOMETOOLS_SAAV_MGF_GLOB = os.path.join(PROTEOMETOOLS_SAAV_DIR, "mgf_gt", "*.mgf")
+PROTEOMETOOLS_SAAV_MGF_GLOB = _under(PROTEOMETOOLS_SAAV_DIR, "mgf_gt", "*.mgf")
 PROTEOMETOOLS_SAAV_DATASET = DatasetPaths(
     name="ProteomeTools_SAAV",
     rawfile_glob=None,
     msms_glob=None,
     mgf_unprocessed_dir=None,
     final_mgf_glob=PROTEOMETOOLS_SAAV_MGF_GLOB,
-    mztab_path_dnps=os.path.join(RESULT_RUN_PATH, "proteometools_saav_dnps.mztab"),
-    mztab_path_fusion=os.path.join(RESULT_RUN_PATH, "proteometools_saav_hybrid.mztab"),
+    mztab_path_dnps=_under(RESULT_RUN_PATH, "proteometools_saav_dnps.mztab"),
+    mztab_path_fusion=_under(RESULT_RUN_PATH, "proteometools_saav_hybrid.mztab"),
 )
 _plm_tag = f"_plm{PLM_SPECIES}" if PLM_SPECIES != ACTIVE_SPECIES else ""
-NINE_SPECIES_PROFORMA_DIR = nine_species_benchmark_dir(ACTIVE_SPECIES)
+NINE_SPECIES_PROFORMA_DIR = _under(
+    NINE_SPECIES_BENCHMARK_DIR, SPECIES[ACTIVE_SPECIES]["benchmark_dir"]
+)
 NINE_SPECIES_DATASET = DatasetPaths(
     name=f"9S_{ACTIVE_SPECIES}",
     rawfile_glob=None,
     msms_glob=None,
     mgf_unprocessed_dir=None,
-    final_mgf_glob=os.path.join(NINE_SPECIES_PROFORMA_DIR, "*.mgf"),
-    mztab_path_dnps=os.path.join(RESULT_RUN_PATH, f"9s_{ACTIVE_SPECIES}{_plm_tag}_dnps.mztab"),
-    mztab_path_fusion=os.path.join(RESULT_RUN_PATH, f"9s_{ACTIVE_SPECIES}{_plm_tag}_hybrid.mztab"),
+    final_mgf_glob=_under(NINE_SPECIES_PROFORMA_DIR, "*.mgf"),
+    mztab_path_dnps=_under(RESULT_RUN_PATH, f"9s_{ACTIVE_SPECIES}{_plm_tag}_dnps.mztab"),
+    mztab_path_fusion=_under(RESULT_RUN_PATH, f"9s_{ACTIVE_SPECIES}{_plm_tag}_hybrid.mztab"),
 )
 # Raw KoL preparation is optional and not part of the portable archive. A local
 # source tree can be supplied explicitly when regenerating the final MGFs.
@@ -276,60 +307,57 @@ def kol_species_msms_path(species: str) -> str:
     return os.path.join(KOL_SEARCH_RESULTS_ROOT, KOL_SPECIES_DIRS[species], "msms.txt")
 
 def kol_species_output_root(species: str) -> str:
-    return os.path.join(WORK_DIR, "kingdoms_of_life", species)
+    return _under(WORK_DIR, "kingdoms_of_life", species)
 
 
 def kol_species_subset_path(species: str) -> str:
-    return os.path.join(KOL_SUBSETS_DIR, f"{species}.mgf")
+    return _under(KOL_SUBSETS_DIR, f"{species}.mgf")
 
 # --- Shared files (same for all species, live under casanovo/) ---
-FUSION_TRAINING_TRAIN_SET = os.path.join(MASSIVEKB_TRAINING_DIR, "fusion_train_set")
-FUSION_TRAINING_VAL_SET = os.path.join(MASSIVEKB_TRAINING_DIR, "fusion_val_set")
+FUSION_TRAINING_TRAIN_SET = _under(MASSIVEKB_TRAINING_DIR, "fusion_train_set")
+FUSION_TRAINING_VAL_SET = _under(MASSIVEKB_TRAINING_DIR, "fusion_val_set")
 
-CASANOVO_TEACHER_TRAIN_MZTAB_PATH = _exp(os.path.join(SHARED_RUN_PATH, "casanovo_teacher_train.mztab"))
-CASANOVO_TEACHER_TEST_MZTAB_PATH = _exp(os.path.join(SHARED_RUN_PATH, "casanovo_teacher_test.mztab"))
-CASANOVO_TEACHER_SCORES_TRAIN_PATH = _exp(os.path.join(SHARED_RUN_PATH, "casanovo_teacher_scores_train.pt"))
-CASANOVO_TEACHER_SCORES_TEST_PATH = _exp(os.path.join(SHARED_RUN_PATH, "casanovo_teacher_scores_test.pt"))
-FUSION_Y_TRAIN_PATH = _exp(os.path.join(SHARED_RUN_PATH, "fusion_y_train.pt"))
-FUSION_Y_TEST_PATH = _exp(os.path.join(SHARED_RUN_PATH, "fusion_y_test.pt"))
+CASANOVO_TEACHER_TRAIN_MZTAB_PATH = _exp(_under(SHARED_RUN_PATH, "casanovo_teacher_train.mztab"))
+CASANOVO_TEACHER_TEST_MZTAB_PATH = _exp(_under(SHARED_RUN_PATH, "casanovo_teacher_test.mztab"))
+CASANOVO_TEACHER_SCORES_TRAIN_PATH = _exp(_under(SHARED_RUN_PATH, "casanovo_teacher_scores_train.pt"))
+CASANOVO_TEACHER_SCORES_TEST_PATH = _exp(_under(SHARED_RUN_PATH, "casanovo_teacher_scores_test.pt"))
+FUSION_Y_TRAIN_PATH = _exp(_under(SHARED_RUN_PATH, "fusion_y_train.pt"))
+FUSION_Y_TEST_PATH = _exp(_under(SHARED_RUN_PATH, "fusion_y_test.pt"))
 
 # --- ContraNovo teacher / fusion artifacts (separate from casanovo's because
 # the score tensors live in a different vocab even though the dim happens to
 # also be 29).
-CONTRANOVO_TEACHER_TRAIN_PT_PATH = os.path.join(SHARED_RUN_PATH, "contranovo_teacher_train_torch_data.pt")
-CONTRANOVO_TEACHER_TEST_PT_PATH = os.path.join(SHARED_RUN_PATH, "contranovo_teacher_test_torch_data.pt")
-CONTRANOVO_TEACHER_SCORES_TRAIN_PATH = os.path.join(SHARED_RUN_PATH, "contranovo_teacher_scores_train.pt")
-CONTRANOVO_TEACHER_SCORES_TEST_PATH = os.path.join(SHARED_RUN_PATH, "contranovo_teacher_scores_test.pt")
-CONTRANOVO_FUSION_Y_TRAIN_PATH = os.path.join(SHARED_RUN_PATH, "contranovo_fusion_y_train.pt")
-CONTRANOVO_FUSION_Y_TEST_PATH = os.path.join(SHARED_RUN_PATH, "contranovo_fusion_y_test.pt")
-CONTRANOVO_PLM_PSM_X_TRAIN_PATH = os.path.join(SHARED_RUN_PATH, "contranovo_plm_psm_x_train.pt")
-CONTRANOVO_PLM_PSM_X_TEST_PATH = os.path.join(SHARED_RUN_PATH, "contranovo_plm_psm_x_test.pt")
-CONTRANOVO_PLM_PSM_TEACHER_SCORES_TRAIN_PATH = os.path.join(SHARED_RUN_PATH, "contranovo_plm_psm_teacher_scores_train.pt")
-CONTRANOVO_PLM_PSM_TEACHER_SCORES_TEST_PATH = os.path.join(SHARED_RUN_PATH, "contranovo_plm_psm_teacher_scores_test.pt")
+CONTRANOVO_TEACHER_TRAIN_PT_PATH = _under(SHARED_RUN_PATH, "contranovo_teacher_train_torch_data.pt")
+CONTRANOVO_TEACHER_TEST_PT_PATH = _under(SHARED_RUN_PATH, "contranovo_teacher_test_torch_data.pt")
+CONTRANOVO_TEACHER_SCORES_TRAIN_PATH = _under(SHARED_RUN_PATH, "contranovo_teacher_scores_train.pt")
+CONTRANOVO_TEACHER_SCORES_TEST_PATH = _under(SHARED_RUN_PATH, "contranovo_teacher_scores_test.pt")
+CONTRANOVO_FUSION_Y_TRAIN_PATH = _under(SHARED_RUN_PATH, "contranovo_fusion_y_train.pt")
+CONTRANOVO_FUSION_Y_TEST_PATH = _under(SHARED_RUN_PATH, "contranovo_fusion_y_test.pt")
+CONTRANOVO_PLM_PSM_X_TRAIN_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_x_train.pt")
+CONTRANOVO_PLM_PSM_X_TEST_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_x_test.pt")
+CONTRANOVO_PLM_PSM_TEACHER_SCORES_TRAIN_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_teacher_scores_train.pt")
+CONTRANOVO_PLM_PSM_TEACHER_SCORES_TEST_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_teacher_scores_test.pt")
 CONTRANOVO_FUSION_MODEL_PATH = os.environ.get(
-    "DNPS_CONTRANOVO_FUSION_MODEL_PATH",
-    os.path.join(SHARED_MODEL_RUN_PATH, "contranovo_fusion_model.pth"),
-)
+    "DNPS_CONTRANOVO_FUSION_MODEL_PATH"
+) or _under(SHARED_MODEL_RUN_PATH, "contranovo_fusion_model.pth")
 CONTRANOVO_NULL_MODEL_PATH = os.environ.get(
-    "DNPS_CONTRANOVO_NULL_MODEL_PATH",
-    os.path.join(SHARED_MODEL_RUN_PATH, "contranovo_null_model.pth"),
-)
+    "DNPS_CONTRANOVO_NULL_MODEL_PATH"
+) or _under(SHARED_MODEL_RUN_PATH, "contranovo_null_model.pth")
 
 # --- Per-species files (live under RUN_PATH, different for each species) ---
 # DNPS_PLM_DATA_SUFFIX lets experiments write versioned training data (e.g.
 # "_sw_v2") without overwriting the baseline files.
 _plm_data_suffix = os.environ.get("DNPS_PLM_DATA_SUFFIX", "")
-PLM_SEQ_X_PATH = os.path.join(PLM_RUN_PATH, f'plm_seq_x{_plm_data_suffix}.pt')
-PLM_SEQ_Y_PATH = os.path.join(PLM_RUN_PATH, f'plm_seq_y{_plm_data_suffix}.pt')
-PLM_SEQ_COUNTS_PATH = os.path.join(PLM_RUN_PATH, f'plm_seq_counts{_plm_data_suffix}.pkl')
-PLM_SEQ_TEACHER_SCORES_PATH = os.path.join(PLM_RUN_PATH, f'plm_seq_teacher_scores.pt')
-PLM_PSM_X_TRAIN_PATH = _exp(os.path.join(RUN_PATH, f'plm_psm_x_train.pt'))
-PLM_PSM_X_TEST_PATH = _exp(os.path.join(RUN_PATH, f'plm_psm_x_test.pt'))
-PLM_PSM_TEACHER_SCORES_TRAIN_PATH = _exp(os.path.join(RUN_PATH, f'plm_psm_teacher_scores_train.pt'))
-PLM_PSM_TEACHER_SCORES_TEST_PATH = _exp(os.path.join(RUN_PATH, f'plm_psm_teacher_scores_test.pt'))
-PLM_CHECKPOINT_PATH = os.environ.get(
-    "DNPS_PLM_CKPT_PATH",
-    os.path.join(PLM_MODEL_RUN_PATH, f'plm_ckpt.pt'),
+PLM_SEQ_X_PATH = _under(PLM_RUN_PATH, f'plm_seq_x{_plm_data_suffix}.pt')
+PLM_SEQ_Y_PATH = _under(PLM_RUN_PATH, f'plm_seq_y{_plm_data_suffix}.pt')
+PLM_SEQ_COUNTS_PATH = _under(PLM_RUN_PATH, f'plm_seq_counts{_plm_data_suffix}.pkl')
+PLM_SEQ_TEACHER_SCORES_PATH = _under(PLM_RUN_PATH, f'plm_seq_teacher_scores.pt')
+PLM_PSM_X_TRAIN_PATH = _exp(_under(RUN_PATH, f'plm_psm_x_train.pt'))
+PLM_PSM_X_TEST_PATH = _exp(_under(RUN_PATH, f'plm_psm_x_test.pt'))
+PLM_PSM_TEACHER_SCORES_TRAIN_PATH = _exp(_under(RUN_PATH, f'plm_psm_teacher_scores_train.pt'))
+PLM_PSM_TEACHER_SCORES_TEST_PATH = _exp(_under(RUN_PATH, f'plm_psm_teacher_scores_test.pt'))
+PLM_CHECKPOINT_PATH = os.environ.get("DNPS_PLM_CKPT_PATH") or _under(
+    PLM_MODEL_RUN_PATH, "plm_ckpt.pt"
 )
 
 # Fusion head is trained from Casanovo + pepLM teacher scores on the same PSM
@@ -341,16 +369,14 @@ PLM_CHECKPOINT_PATH = os.environ.get(
 _fusion_model_run = (
     HUMAN_PEPPR_FUSION_RUN if PLM_SPECIES == HUMAN_PEPPR_PLM else RUN_NAME
 )
-FUSION_MODEL_PATH = os.environ.get(
-    "DNPS_FUSION_MODEL_PATH",
-    os.path.join(model_run_path(_fusion_model_run), "fusion_model.pth"),
+FUSION_MODEL_PATH = os.environ.get("DNPS_FUSION_MODEL_PATH") or _under_data(
+    "models", _fusion_model_run, "fusion_model.pth"
 )
-FUSION_SCORES_TEACHER_TEST_PATH = os.path.join(RUN_PATH, 'fusion_scores_teacher_test.pt')
-NULL_MODEL_PATH = os.environ.get(
-    "DNPS_NULL_MODEL_PATH",
-    os.path.join(model_run_path(_fusion_model_run), "null_model.pth"),
+FUSION_SCORES_TEACHER_TEST_PATH = _under(RUN_PATH, 'fusion_scores_teacher_test.pt')
+NULL_MODEL_PATH = os.environ.get("DNPS_NULL_MODEL_PATH") or _under_data(
+    "models", _fusion_model_run, "null_model.pth"
 )
-NULL_SCORES_TEACHER_TEST_PATH = os.path.join(RUN_PATH, 'null_scores_teacher_test.pt')
+NULL_SCORES_TEACHER_TEST_PATH = _under(RUN_PATH, 'null_scores_teacher_test.pt')
 
 PLM_INIT_FROM_CHECKPOINT = os.environ.get("DNPS_PLM_INIT_FROM_CHECKPOINT", "0").lower() in ("1", "true", "yes")
 PLM_RAND_SUFFIX_FULL_LEN = os.environ.get("DNPS_PLM_RAND_SUFFIX_FULL_LEN", "0").lower() in ("1", "true", "yes")

@@ -24,7 +24,6 @@ except ImportError:
     _proforma_parse = None
     _ProFormaError = None
 
-os.makedirs(const.RUN_PATH, exist_ok=True)
 
 
 _MASS_TO_PROFORMA = {
@@ -209,6 +208,8 @@ def _find_cdr3_range(seq: str) -> tuple[int, int] | None:
 
 
 def generate_plm_training_data():
+    const.require_data_path("pepLM training data")
+    os.makedirs(const.RUN_PATH, exist_ok=True)
     # DNPS_PLM_PROTEASES supports only tryptic digestion or non-specific
     # sliding-window generation.
     digestion_mode = os.environ.get("DNPS_PLM_PROTEASES", "trypsin").strip().lower()
