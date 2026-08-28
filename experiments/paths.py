@@ -21,6 +21,7 @@ from peppr.const import (  # noqa: F401  (re-exported for figure modules)
     CASANOVO_CONFIG_YAML,
     DATA_PATH,
     DatasetPaths,
+    THERMO_RAW_FILE_PARSER,
     FASTAS_DIR,
     MODELS_DIR,
     PLM_SPECIES,

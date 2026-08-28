@@ -32,6 +32,27 @@ torch.cuda.manual_seed(const.SEED)
 torch.set_float32_matmul_precision('high')
 
 
+# Benchmark datasets are defined by whoever is driving inference, not by peppr:
+# the paper analyses register theirs in experiments.paths, and a downstream user
+# can point DNPS_DATASETS_MODULE at any module exposing DatasetPaths attributes.
+DATASETS_MODULE = os.environ.get("DNPS_DATASETS_MODULE", "peppr.const")
+
+
+def resolve_dataset(name: str, module_name: str | None = None):
+    """Look up a DatasetPaths instance by attribute name in a datasets module."""
+    import importlib
+
+    module_name = module_name or DATASETS_MODULE
+    module = importlib.import_module(module_name)
+    if not hasattr(module, name):
+        raise ValueError(
+            f"No dataset named {name!r} in {module_name}. Set "
+            "DNPS_DATASETS_MODULE to the module that defines it "
+            "(the paper analyses use experiments.paths)."
+        )
+    return getattr(module, name)
+
+
 model_type = sys.argv[1]
 
 def predict_plm_teacher(model, X, batch_size):
@@ -96,10 +117,13 @@ elif model_type == 'contranovo':
     out_root = os.path.join(const.RESULT_RUN_PATH, "contranovo")
     os.makedirs(out_root, exist_ok=True)
 
-    mgf_files = sorted(glob.glob(const.NINE_SPECIES_DATASET.final_mgf_glob))
+    cn_dataset = resolve_dataset(
+        os.environ.get("DNPS_CONTRANOVO_DATASET", "NINE_SPECIES_DATASET")
+    )
+    mgf_files = sorted(glob.glob(cn_dataset.final_mgf_glob))
     if not mgf_files:
         raise FileNotFoundError(
-            f"No MGFs matched {const.NINE_SPECIES_DATASET.final_mgf_glob!r}; "
+            f"No MGFs matched {cn_dataset.final_mgf_glob!r}; "
             "run prepare_data first or set DNPS_SPECIES correctly."
         )
 
@@ -139,7 +163,13 @@ elif model_type == 'auto':
     parser = argparse.ArgumentParser(prog="inference.py auto")
     parser.add_argument(
         "--dataset", nargs="+", default=["NINE_SPECIES_DATASET"],
-        help="Names of DatasetPaths attributes in const.py to run inference on.",
+        help="Names of DatasetPaths attributes to run inference on, resolved "
+             "from --datasets-module.",
+    )
+    parser.add_argument(
+        "--datasets-module", default=DATASETS_MODULE,
+        help="Module defining the named datasets (default: %(default)s; the "
+             "paper analyses use experiments.paths).",
     )
     parser.add_argument(
         "--use-peppr", choices=["true", "false", "both"], default="both",
@@ -147,11 +177,8 @@ elif model_type == 'auto':
     )
     args = parser.parse_args(sys.argv[2:])
 
-    datasets = []
-    for name in args.dataset:
-        if not hasattr(const, name):
-            raise ValueError(f"No dataset named {name!r} in const.py")
-        datasets.append(getattr(const, name))
+    datasets = [resolve_dataset(name, args.datasets_module)
+                for name in args.dataset]
 
     if args.use_peppr == "both":
         use_peppr_modes = ["true", "false"]

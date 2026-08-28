@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Evaluate Casanovo and Casanovo + a chosen pepLM (PP) on Kingdoms-of-Life
 species, using the ProForma-annotated MGFs produced by
-``peppr.prepare_data.prepare_kol_species_dataset()``.
+``experiments.fig3.kol_prep.prepare_kol_species_dataset()``.
 
 For each ``--species`` (e.g. human, mouse, …):
   1. Read the archived, fixed 10k-spectrum subset from
