@@ -44,7 +44,7 @@ from experiments.utils.evaluation import (
     _normalize_to_massivekb, _expand_masses, evaluate, MASSIVEKB_MASSES,
     load_mztab_with_mgf, _parse_mgf_spectra, _parse_ms_run_locations, _SPECTRA_REF_RE,
 )
-from peppr.const import (
+from experiments.paths import (
     COLOR_CASANOVO as COLOR_DNPS,
     COLOR_HISTOGRAM_GRAY,
     COLOR_PP,

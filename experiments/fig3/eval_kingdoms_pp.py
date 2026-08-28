@@ -38,7 +38,7 @@ import numpy as np
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
-from peppr.const import (  # noqa: E402
+from experiments.paths import (  # noqa: E402
     CASANOVO_CONFIG_YAML,
     KOL_RESULTS_DIR,
     KOL_SUBSETS_DIR,

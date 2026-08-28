@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peppr.const import PROJECT_ROOT
+from experiments.paths import PROJECT_ROOT
 
 CACHE_PATH = os.path.join(PROJECT_ROOT, "prosit_sa_cache.parquet")
 

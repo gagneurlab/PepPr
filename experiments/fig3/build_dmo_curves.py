@@ -13,7 +13,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
 from experiments.utils.evaluation import _normalize_to_massivekb, MASSIVEKB_MASSES
 from experiments.utils.evaluation import peptide_match_mass  # noqa
-from peppr.const import PROTEOMETOOLS_SAAV_DIR
+from experiments.paths import PROTEOMETOOLS_SAAV_DIR
 from casanovo.denovo import evaluate  # noqa
 
 DMO = os.path.join(PROTEOMETOOLS_SAAV_DIR, "msfragger_dmo")

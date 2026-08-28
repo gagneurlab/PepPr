@@ -46,8 +46,8 @@ activate_env() {  # activate_env <conda-env-name>
 case "$TOOL" in
   instanovo)
     activate_env "${INSTANOVO_ENV:-ka-instanovo}"
-    MGF_DIR=$("$PYTHON_BIN" -c "from peppr.const import nine_species_benchmark_dir as d; print(d('$SP'))")
-    OUT_DIR=$("$PYTHON_BIN" -c "from peppr.const import SPECIES, result_run_path as r; print(r(SPECIES['$SP']['run_name']))")/instanovo
+    MGF_DIR=$("$PYTHON_BIN" -c "from experiments.paths import nine_species_benchmark_dir as d; print(d('$SP'))")
+    OUT_DIR=$("$PYTHON_BIN" -c "from experiments.paths import SPECIES, result_run_path as r; print(r(SPECIES['$SP']['run_name']))")/instanovo
     mkdir -p "$OUT_DIR"
     for mgf in "$MGF_DIR"/*.mgf; do
       base=$(basename "$mgf" .mgf)
@@ -101,7 +101,7 @@ case "$TOOL" in
     #   # --rescore emits the <base>_rescore score files load_smsnet() expects.
     #   # SMSNet writes <inputs>_output/ next to the staged inputs; that directory
     #   # is what lands at $SMSNET_ROOT/<species>_inputs_output.
-    root=$("$PYTHON_BIN" -c "from peppr.const import SMSNET_ROOT; print(SMSNET_ROOT)")
+    root=$("$PYTHON_BIN" -c "from experiments.paths import SMSNET_ROOT; print(SMSNET_ROOT)")
     echo "SMSNet is external (github.com/cmb-chula/SMSNet @ facfaf441d0e); see this" >&2
     echo "case's header for the exact command. Place its output at:" >&2
     echo "  $root/${SP}_inputs_output   (override root with DNPS_SMSNET_ROOT)" >&2

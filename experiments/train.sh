@@ -46,12 +46,12 @@ gen_if_missing() {
   # Generate pepLM training data only if the X/Y tensors are absent.
   "$PYTHON_BIN" -c "
 import os
-from peppr import const
+from experiments import paths
 from peppr.prepare_data import generate_plm_training_data
-os.makedirs(const.PLM_RUN_PATH, exist_ok=True)
-print(f'FASTA_PATH={const.FASTA_PATH}')
-print(f'PLM_SEQ_X_PATH={const.PLM_SEQ_X_PATH}')
-if os.path.exists(const.PLM_SEQ_X_PATH) and os.path.exists(const.PLM_SEQ_Y_PATH):
+os.makedirs(paths.PLM_RUN_PATH, exist_ok=True)
+print(f'FASTA_PATH={paths.FASTA_PATH}')
+print(f'PLM_SEQ_X_PATH={paths.PLM_SEQ_X_PATH}')
+if os.path.exists(paths.PLM_SEQ_X_PATH) and os.path.exists(paths.PLM_SEQ_Y_PATH):
     print('pepLM training data already present, skipping generation')
 else:
     generate_plm_training_data()
@@ -127,21 +127,21 @@ case "$TARGET" in
         activate_env
         "$PYTHON_BIN" -c "
 import torch
-from peppr import const
+from experiments import paths
 from peppr.model import load_plm_model
 from tqdm import tqdm
-torch.manual_seed(const.SEED); torch.cuda.manual_seed(const.SEED)
+torch.manual_seed(paths.SEED); torch.cuda.manual_seed(paths.SEED)
 torch.set_float32_matmul_precision('high')
 model = load_plm_model(); batch_size = 4096
 def run(X_path, out_path):
-    X = torch.load(X_path, map_location=const.DEVICE)
-    scores = torch.zeros(X.shape[0], const.PLM_BLOCK_SIZE, len(const.VOCAB), device=const.DEVICE)
+    X = torch.load(X_path, map_location=paths.DEVICE)
+    scores = torch.zeros(X.shape[0], paths.PLM_BLOCK_SIZE, len(paths.VOCAB), device=paths.DEVICE)
     with torch.no_grad():
         for i in tqdm(range(0, len(X), batch_size), total=len(X)//batch_size):
             end = min(i+batch_size, len(X)); logits, *_ = model(X[i:end]); scores[i:end] = logits
     torch.save(scores, out_path); print('Saved', out_path)
-run(const.CONTRANOVO_PLM_PSM_X_TRAIN_PATH, const.CONTRANOVO_PLM_PSM_TEACHER_SCORES_TRAIN_PATH)
-run(const.CONTRANOVO_PLM_PSM_X_TEST_PATH,  const.CONTRANOVO_PLM_PSM_TEACHER_SCORES_TEST_PATH)
+run(paths.CONTRANOVO_PLM_PSM_X_TRAIN_PATH, paths.CONTRANOVO_PLM_PSM_TEACHER_SCORES_TRAIN_PATH)
+run(paths.CONTRANOVO_PLM_PSM_X_TEST_PATH,  paths.CONTRANOVO_PLM_PSM_TEACHER_SCORES_TEST_PATH)
 "
         ;;
       train_fusion)

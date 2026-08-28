@@ -18,7 +18,7 @@ For each (mAb, arm):
      the longest aligned contig, NG50, and CDR-restricted accuracy / coverage.
 
 Writes the two TSVs plot_figure_4 Panel E reads
-(const.FIGURE_4_ASSEMBLY_TSV_PATHS): the XA-Novo mAbs to the `solo` summary,
+(paths.FIGURE_4_ASSEMBLY_TSV_PATHS): the XA-Novo mAbs to the `solo` summary,
 the Beslic mAbs to the `beslic` summary. The mAb set, per-mAb references, and
 protease lists all come from the canonical registry in references.MAB_SPECS.
 
@@ -39,7 +39,7 @@ from dataclasses import dataclass
 import npysearch as npy
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peppr import const
+from experiments import paths
 from experiments.fig4.references import (
     MAB_SPECS, find_mztab, read_fasta_with_regions, il_fold,
 )
@@ -47,14 +47,14 @@ from experiments.fig4.references import (
 # ALPS is third-party and not redistributed with this repo. Obtain ALPS.jar and
 # either set DNPS_ALPS_JAR to its path or place it at <repo>/ALPS.jar.
 ALPS_JAR = os.environ.get(
-    "DNPS_ALPS_JAR", os.path.join(const.PROJECT_ROOT, "ALPS.jar"))
+    "DNPS_ALPS_JAR", os.path.join(paths.PROJECT_ROOT, "ALPS.jar"))
 
 # Union of ALPS contigs across these k (matches the shipped `..._k7to11.tsv`).
 K_MERS = [7, 8, 9, 10, 11]
 TOP_CONTIGS = 20
 # Minimum Casanovo PSM score fed to ALPS (drops low-confidence PSMs pre-assembly).
 ALPS_SCORE_THRESHOLD = 0.1
-OUT_DIR = os.path.join(const.WORK_DIR, "mabs", "alps")  # scratch for CSVs/contigs
+OUT_DIR = os.path.join(paths.WORK_DIR, "mabs", "alps")  # scratch for CSVs/contigs
 
 # Strip ProForma mods from an mzTab peptide: bracket mods (N[Deamidated]),
 # Casanovo-v3 paren mods (C(+57.02)), and bare mass shifts (M+15.99).
@@ -401,7 +401,7 @@ def _out_path(source: str) -> str:
     """Pick the const-defined TSV for a mAb source ('xa_novo' → solo summary,
     'beslic' → beslic summary)."""
     tag = "solo" if source == "xa_novo" else "beslic"
-    for path in const.FIGURE_4_ASSEMBLY_TSV_PATHS:
+    for path in paths.FIGURE_4_ASSEMBLY_TSV_PATHS:
         if tag in os.path.basename(path):
             return path
     raise KeyError(f"no FIGURE_4_ASSEMBLY_TSV_PATHS entry for {tag}")

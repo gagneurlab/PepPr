@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from experiments.utils.evaluation import (
     _normalize_to_massivekb, evaluate, MASSIVEKB_MASSES, load_mztab_with_mgf,
 )
-from peppr.const import (
+from experiments.paths import (
     COLOR_CASANOVO as COLOR_DNPS,
     COLOR_PP,
     result_run_path,

@@ -41,7 +41,7 @@ from experiments.utils.evaluation import (
     annotate_missing_ion_gap, annotate_precursor_readout,
 )
 from experiments.fig3.panelA_curves import load_panelA_curves
-from peppr.const import (
+from experiments.paths import (
     COLOR_CASANOVO as COLOR_DNPS,
     COLOR_DARK_GRAY,
     COLOR_GREEN,

@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peppr import const
+from experiments import paths
 from pyteomics import mztab
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'casanovo'))
@@ -184,7 +184,7 @@ def _resolve_archived_mgf(path: str) -> str:
     original = Path(path)
     if original.is_file():
         return str(original)
-    roots = (Path(const.NINE_SPECIES_PATH), Path(const.BENCHMARKS_DIR))
+    roots = (Path(paths.NINE_SPECIES_PATH), Path(paths.BENCHMARKS_DIR))
     matches = []
     for root in roots:
         if root.is_dir():
@@ -309,7 +309,7 @@ def load_mztab_with_mgf(mztab_path):
 
     return pd.DataFrame(rows)
 
-COLORS = [const.COLOR_CASANOVO, const.COLOR_PP, const.COLOR_XANOVO]
+COLORS = [paths.COLOR_CASANOVO, paths.COLOR_PP, paths.COLOR_XANOVO]
 
 plt.style.use('ggplot')
 plt.rcParams.update({
@@ -337,7 +337,7 @@ def plot_position_accuracy(logits, labels, Y, title='Accuracy by Position in Seq
     
     plt.figure(figsize=(12, 6))
     _, predicted_classes = torch.max(logits, dim=3)
-    ignore_mask = (Y != const.VOCAB.index('-'))
+    ignore_mask = (Y != paths.VOCAB.index('-'))
     correct_predictions = (predicted_classes == Y.unsqueeze(0)).float()  # Shape: (m, b, t)
     masked_correct = correct_predictions * ignore_mask.unsqueeze(0)  # Shape: (m, b, t)
     position_accuracies = masked_correct.sum(dim=1) / ignore_mask.sum(dim=0).unsqueeze(0)  # Shape: (m, t)
@@ -376,7 +376,7 @@ def plot_peptide_pc(dfs, labels, mutation, title="Precision-Coverage"):
     df = pd.concat(dfs, axis=0)
     _count_re = re.match(r'^(\d+)(\+?)\[(.+)\]$', mutation or '')
     if mutation is None:
-        mutation = const.ACTIVE_SPECIES
+        mutation = paths.ACTIVE_SPECIES
     elif mutation == "unmodified":
         df = df[~df['true_seq'].str.contains('+', regex=False)]
     elif _count_re:
@@ -511,7 +511,7 @@ def plot_sequence_diff(ax, true_seq, preds, boundary_pos=0, title=None,
                 ti = c - true_off
                 t = true_seq[ti] if 0 <= ti < L else " "
                 is_match = (ch == t) or ({ch, t} <= {"I", "L"})
-                fc, tc = ("#e0f0e2", const.COLOR_GREEN) if is_match else ("#fde0e1", "#a32a2c")
+                fc, tc = ("#e0f0e2", paths.COLOR_GREEN) if is_match else ("#fde0e1", "#a32a2c")
             is_hl = c in hl_cols
             ec = "#c69214" if is_hl else "black"
             lw = 2.4 if is_hl else 0.6
@@ -593,8 +593,8 @@ def plot_spectrum_on_ax(ax, mgf_path, scan, seq, fragment_tol_ppm=20):
         mz=spec["m/z array"],
         intensity=spec["intensity array"],
     )
-    sup.colors["y"] = const.COLOR_RED
-    sup.colors["?"] = const.COLOR_LIGHT_GRAY
+    sup.colors["y"] = paths.COLOR_RED
+    sup.colors["?"] = paths.COLOR_LIGHT_GRAY
     spectrum.annotate_proforma(
         seq, fragment_tol_mass=fragment_tol_ppm,
         fragment_tol_mode="ppm", ion_types="yb",
@@ -618,8 +618,8 @@ def plot_spectrum_on_ax(ax, mgf_path, scan, seq, fragment_tol_ppm=20):
         label = label.replace("^2", "²").replace("^3", "³")
         ion_char = label[0] if label and label[0] in "by" else "?"
         color = {
-            "b": const.COLOR_BLUE,
-            "y": const.COLOR_RED,
+            "b": paths.COLOR_BLUE,
+            "y": paths.COLOR_RED,
         }.get(ion_char, "#888")
         rel_int = intensity / max_int if max_int > 0 else 0
         ax.text(mz, rel_int + 0.01, label,
@@ -631,8 +631,8 @@ _AA_MONO_MASS = CANONICAL_AA_MASSES
 _PROTON_MZ = 1.00728
 _H2O_MASS = 18.01056
 
-_B_ION_COLOR = const.COLOR_BLUE
-_Y_ION_COLOR = const.COLOR_RED
+_B_ION_COLOR = paths.COLOR_BLUE
+_Y_ION_COLOR = paths.COLOR_RED
 
 
 def _ion_mz(residues, ion_type, idx):
@@ -719,7 +719,7 @@ def annotate_missing_b_gap(ax_spec, true_seq, missing_position, observed_positio
 
 def annotate_precursor_readout(ax_spec, true_seq, precursor_mz, precursor_charge,
                                 from_y_idx, y_arrow=0.6, color=None,
-                                peak_color=const.COLOR_PURPLE):
+                                peak_color=paths.COLOR_PURPLE):
     """Pedagogical annotation: in a *complete* spectrum the N-terminal residue
     could be read as ``[M+H]⁺ − y_{from_y_idx}``.
 
@@ -850,5 +850,5 @@ NINE_SPECIES_LABEL_FONTSIZE = 11
 NINE_SPECIES_TITLE_FONTSIZE = 12
 
 # Casanovo vs Casanovo+PP colours used in all four supp figs.
-NINE_SPECIES_COLOR_DNPS = const.COLOR_CASANOVO
-NINE_SPECIES_COLOR_PP = const.COLOR_PP
+NINE_SPECIES_COLOR_DNPS = paths.COLOR_CASANOVO
+NINE_SPECIES_COLOR_PP = paths.COLOR_PP

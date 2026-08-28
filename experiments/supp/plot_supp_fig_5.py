@@ -16,7 +16,7 @@ import sys
 
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peppr import const
+from experiments import paths
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -38,7 +38,7 @@ from experiments.fig4.references import (
 
 MABS = list(MAB_SPECS)
 REGIONS = ["CDR-only", "FR-only", "C-only", "FR<->CDR", "V<->C"]
-OUT_PATH = const.SUPP_FIGURE_5_PATH
+OUT_PATH = paths.SUPP_FIGURE_5_PATH
 
 # ARM_STYLE from xa_novo tags labels as "Casanovo v5" / "XA-Novo v3". Drop
 # the version suffixes for the supp fig legend. Beslic mAbs use `noplm` for

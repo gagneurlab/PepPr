@@ -15,8 +15,7 @@ import argparse, csv, os, re, sys
 from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peppr import const
-
+from experiments import paths
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -31,7 +30,7 @@ from experiments.utils.evaluation import (
     load_mztab_with_mgf, plot_sequence_diff, plot_spectrum_on_ax, _AA_RE,
     annotate_missing_ion_gap, _ion_mz, _B_ION_COLOR,
 )
-from peppr.const import COLOR_LIGHT_GRAY, COLOR_PP, COLOR_RED
+from experiments.paths import COLOR_LIGHT_GRAY, COLOR_PP, COLOR_RED
 from experiments.fig4.references import (
     ARM_STYLE,
     MAB_SPECS,
@@ -234,9 +233,9 @@ _ASSEMBLY_MABS = [
 def _load_assembly_rows():
     # These per-(mab, arm, chain) summaries are produced by
     # experiments/fig4/assembly.py (run_mab.sh assemble); the archive ships the
-    # canonical copies at const.FIGURE_4_ASSEMBLY_TSV_PATHS.
+    # canonical copies at paths.FIGURE_4_ASSEMBLY_TSV_PATHS.
     rows = []
-    for path in const.FIGURE_4_ASSEMBLY_TSV_PATHS:
+    for path in paths.FIGURE_4_ASSEMBLY_TSV_PATHS:
         with open(path) as handle:
             rows.extend(csv.DictReader(handle, delimiter="\t"))
     return rows
@@ -677,7 +676,7 @@ def plot_all_panels(dat, ref_by_mab, out_path):
     # N-terminus and the C-terminal anchor (EQL) at the C-terminus.
     EXAMPLE = dict(
         mab="36H6", protease="pepsin", scan=18064,
-        mgf=const.FIGURE_4_EXAMPLE_MGF,
+        mgf=paths.FIGURE_4_EXAMPLE_MGF,
         true_seq="ELKRADAAPTVSIFPPSSEQL",
         v5_pred  ="EKARLDAAPTVSLFPPSSEQL", v5_score=0.11,
         pp_pred  ="ELKRADAAPTVSLFPPSSEQL", pp_score=0.56,
@@ -753,7 +752,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--out",
-                   default=const.FIGURE_4_PATH)
+                   default=paths.FIGURE_4_PATH)
     p.add_argument("--mabs", nargs="*", default=None)
     args = p.parse_args()
 

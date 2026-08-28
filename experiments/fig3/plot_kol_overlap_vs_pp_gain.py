@@ -14,7 +14,7 @@ Run directories are discovered automatically: every subdirectory that has
 both logs is used.  Folder names may be KoL short keys (``bos_tauros``),
 Search.zip-style names (``Bos_tauros``, ``Homo_sapiens``), or legacy aliases
 (``Caenorhabditis_elegans`` → Müller's ``Canaerohabidis_elegans``).  Mapping
-uses ``peppr.const.KOL_SPECIES_DIRS`` plus a small list of cases where
+uses ``experiments.paths.KOL_SPECIES_DIRS`` plus a small list of cases where
 the overlap CSV uses a short epithet (``rerio``, ``scrofa``, …) instead of the
 underscored MaxQuant folder name.
 
@@ -49,7 +49,7 @@ _PROJ_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJ_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJ_ROOT))
 
-from peppr.const import (  # noqa: E402
+from experiments.paths import (  # noqa: E402
     COLOR_CASANOVO,
     COLOR_DARK_GRAY,
     COLOR_MID_GRAY,

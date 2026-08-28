@@ -10,7 +10,7 @@ import argparse
 
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peppr.const import (PROJECT_ROOT, SPECIES, nine_species_benchmark_dir,
+from experiments.paths import (PROJECT_ROOT, SPECIES, nine_species_benchmark_dir,
                                result_run_path)
 from powernovo.run import run_inference
 

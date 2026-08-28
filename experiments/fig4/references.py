@@ -8,19 +8,17 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
-from peppr import const
-
-
+from experiments import paths
 ARM_STYLE = {
-    "vanilla": {"label": "Casanovo v5", "color": const.COLOR_CASANOVO},
-    "xanovo_v3": {"label": "XA-Novo v3", "color": const.COLOR_XANOVO},
+    "vanilla": {"label": "Casanovo v5", "color": paths.COLOR_CASANOVO},
+    "xanovo_v3": {"label": "XA-Novo v3", "color": paths.COLOR_XANOVO},
     "germline_mouse_sw": {
-        "label": f"{const.LABEL_CASANOVO_PEPPR_COMPACT} (mouse)",
-        "color": const.COLOR_PP,
+        "label": f"{paths.LABEL_CASANOVO_PEPPR_COMPACT} (mouse)",
+        "color": paths.COLOR_PP,
     },
     "germline_human_sw": {
-        "label": f"{const.LABEL_CASANOVO_PEPPR_COMPACT} (human)",
-        "color": const.COLOR_PP,
+        "label": f"{paths.LABEL_CASANOVO_PEPPR_COMPACT} (human)",
+        "color": paths.COLOR_PP,
     },
 }
 
@@ -43,28 +41,28 @@ MAB_SPECS = {
     "2B4": {
         "species": "mouse",
         "pp_arm": "germline_mouse_sw",
-        "ref": const.FIGURE_4_MAB_REFERENCE_PATHS["2B4"],
+        "ref": paths.FIGURE_4_MAB_REFERENCE_PATHS["2B4"],
         "proteases": XANOVO_PROTEASES,
         "source": "xa_novo",
     },
     "36H6": {
         "species": "mouse",
         "pp_arm": "germline_mouse_sw",
-        "ref": const.FIGURE_4_MAB_REFERENCE_PATHS["36H6"],
+        "ref": paths.FIGURE_4_MAB_REFERENCE_PATHS["36H6"],
         "proteases": XANOVO_PROTEASES,
         "source": "xa_novo",
     },
     "85F7": {
         "species": "mouse",
         "pp_arm": "germline_mouse_sw",
-        "ref": const.FIGURE_4_MAB_REFERENCE_PATHS["85F7"],
+        "ref": paths.FIGURE_4_MAB_REFERENCE_PATHS["85F7"],
         "proteases": XANOVO_PROTEASES,
         "source": "xa_novo",
     },
     "S2P6": {
         "species": "human",
         "pp_arm": "germline_human_sw",
-        "ref": const.FIGURE_4_MAB_REFERENCE_PATHS["S2P6"],
+        "ref": paths.FIGURE_4_MAB_REFERENCE_PATHS["S2P6"],
         "proteases": XANOVO_PROTEASES,
         "source": "xa_novo",
     },
@@ -72,7 +70,7 @@ MAB_SPECS = {
         "species": "human (HC)",
         "pp_arm": "antibody_human",
         "vanilla_arm": "noplm",
-        "ref": const.FIGURE_4_MAB_REFERENCE_PATHS["IgG1_Human_H"],
+        "ref": paths.FIGURE_4_MAB_REFERENCE_PATHS["IgG1_Human_H"],
         "proteases": BESLIC_IGG_H_PROTEASES,
         "source": "beslic",
     },
@@ -80,7 +78,7 @@ MAB_SPECS = {
         "species": "human (LC)",
         "pp_arm": "antibody_human",
         "vanilla_arm": "noplm",
-        "ref": const.FIGURE_4_MAB_REFERENCE_PATHS["IgG1_Human_L"],
+        "ref": paths.FIGURE_4_MAB_REFERENCE_PATHS["IgG1_Human_L"],
         "proteases": BESLIC_IGG_L_PROTEASES,
         "source": "beslic",
     },
@@ -88,7 +86,7 @@ MAB_SPECS = {
         "species": "human",
         "pp_arm": "antibody_human",
         "vanilla_arm": "noplm",
-        "ref": const.FIGURE_4_MAB_REFERENCE_PATHS["Herceptin"],
+        "ref": paths.FIGURE_4_MAB_REFERENCE_PATHS["Herceptin"],
         "proteases": HERCEPTIN_PROTEASES,
         "source": "beslic",
     },
@@ -96,7 +94,7 @@ MAB_SPECS = {
         "species": "mouse",
         "pp_arm": "antibody_mouse",
         "vanilla_arm": "noplm",
-        "ref": const.FIGURE_4_MAB_REFERENCE_PATHS["anti-FLAG-M2"],
+        "ref": paths.FIGURE_4_MAB_REFERENCE_PATHS["anti-FLAG-M2"],
         "proteases": FLAG_PROTEASES,
         "source": "beslic",
     },
@@ -104,7 +102,7 @@ MAB_SPECS = {
         "species": "mouse (HC)",
         "pp_arm": "antibody_mouse",
         "vanilla_arm": "noplm",
-        "ref": const.FIGURE_4_MAB_REFERENCE_PATHS["WIgG1_H"],
+        "ref": paths.FIGURE_4_MAB_REFERENCE_PATHS["WIgG1_H"],
         "proteases": WIGG_PROTEASES,
         "source": "beslic",
     },
@@ -112,7 +110,7 @@ MAB_SPECS = {
         "species": "mouse (LC)",
         "pp_arm": "antibody_mouse",
         "vanilla_arm": "noplm",
-        "ref": const.FIGURE_4_MAB_REFERENCE_PATHS["WIgG1_L"],
+        "ref": paths.FIGURE_4_MAB_REFERENCE_PATHS["WIgG1_L"],
         "proteases": WIGG_PROTEASES,
         "source": "beslic",
     },
@@ -265,7 +263,7 @@ def find_mztab(mab: str, protease: str, arm: str) -> str | None:
     """Pick the latest valid mzTab for one mAb, protease, and arm."""
     spec = MAB_SPECS[mab]
     if spec["source"] == "beslic":
-        results_dir = const.figure_4_nontryp_results_dir(mab, protease)
+        results_dir = paths.figure_4_nontryp_results_dir(mab, protease)
         patterns = [
             os.path.join(
                 results_dir,
@@ -282,7 +280,7 @@ def find_mztab(mab: str, protease: str, arm: str) -> str | None:
             for path in glob.glob(pattern)
         ]
     else:
-        results_dir = const.figure_4_xanovo_results_dir(mab)
+        results_dir = paths.figure_4_xanovo_results_dir(mab)
         matches = glob.glob(
             os.path.join(
                 results_dir,
