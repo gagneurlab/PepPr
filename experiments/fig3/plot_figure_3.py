@@ -158,7 +158,7 @@ _PLM_STYLE = {
     "mouse": dict(color=COLOR_GREEN, marker="^"),
 }
 _PLM_LEGEND = {
-    "human_iso": "human iso prior",
+    "human_iso": "human prior",
     "mouse": "mouse prior",
 }
 
@@ -224,6 +224,15 @@ def plot_panel_D(ax):
                 all_texts.append(
                     ax.text(xi, yi, name, fontsize=8, color="black",
                             path_effects=glow, zorder=5)
+                )
+        else:
+            for xi, yi, name in zip(sub["pct_plm_in_kol"],
+                                     sub["delta_pep_precision"],
+                                     sub["kol_label"]):
+                ax.annotate(
+                    name, (xi, yi), xytext=(4, 4),
+                    textcoords="offset points", fontsize=8,
+                    color="black", path_effects=glow, zorder=5,
                 )
 
     if _have_adjust and all_texts:

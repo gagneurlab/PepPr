@@ -4,7 +4,9 @@ pepLM peptide overlap with each KoL target species' tryptic proteome.
 
 Inputs:
   - kingdom_peptide_overlap.csv: `pct_plm_in_kol` for each
-    (plm_species, kol_species) pair.
+    (plm_species, kol_species) pair. Generated automatically from the proteome
+    FASTAs and KoL subset MGFs when missing (or with --rebuild-overlap); see
+    build_overlap_csv below.
   - <runs-dir>/<run_dir>/casanovo_only.log and
     casanovo_pp_<plm_species>.log: casanovo "Peptide Precision: X%" lines.
 
@@ -53,15 +55,164 @@ from peppr.const import (  # noqa: E402
     COLOR_MID_GRAY,
     COLOR_PLUM,
     COLOR_PP,
+    FASTAS_DIR,
     KOL_RESULTS_DIR,
     KOL_SPECIES_DIRS,
+    KOL_SUBSETS_DIR,
     PROJECT_ROOT,
+    SPECIES,
 )
 
 DEFAULT_RUNS_DIR = Path(KOL_RESULTS_DIR) / "runs"
 DEFAULT_OVERLAP_CSV = Path(PROJECT_ROOT) / "kingdom_peptide_overlap.csv"
 DEFAULT_PLM_SPECIES = ["human_iso", "mouse"]
 DEFAULT_OUT_PNG = "kol_overlap_vs_pp_gain.png"
+
+
+# ---------------------------------------------------------------------------
+# Overlap CSV generation
+#
+# kingdom_peptide_overlap.csv gives, per (plm_species, kol_species) pair,
+# ``pct_plm_in_kol`` = the percentage of the KoL target species' identified
+# peptides that also occur in that pepLM's training set.
+#
+# The pepLM training set is the in-silico tryptic digest of the pepLM's
+# proteome FASTA (peppr.const.SPECIES[plm]["fasta"]), reproduced here with the
+# exact rules peppr.prepare_data uses in trypsin mode
+# (generate_plm_training_data -> digest_protein(protein, 1, False)):
+#   * cleave after K/R, up to 1 missed cleavage, no methionine excision;
+#   * peptide length 4..PLM_BLOCK_SIZE-2 residues (the +'$' terminator must fit
+#     in a PLM_BLOCK_SIZE row);
+#   * isoleucine folded to leucine and selenocysteine to cysteine (the pepLM
+#     vocabulary is I->L, U->C), peptides with any other non-standard residue
+#     dropped (encode() would KeyError on them).
+# Target peptides come from the KoL subset MGFs (KOL_SUBSETS_DIR/<key>.mgf)
+# SEQ= lines, stripped to bare amino acids and folded the same way. Set
+# membership is orientation-independent, so peptides are compared forward (N->C)
+# rather than reversed as the model stores them.
+# ---------------------------------------------------------------------------
+
+_PLM_MAX_PEP_LEN = 100          # peppr.const.PLM_BLOCK_SIZE
+# VOCAB amino acids after the I->L / U->C fold (peppr.const.VOCAB minus I).
+_VOCAB_AA = frozenset("HYACQMPFWESTDVRNKLG")
+_MOD_BRACKET_RE = re.compile(r"\[[^\]]*\]")
+_KR_RE = re.compile(r"[KR]")
+
+
+def _fold_il_uc(seq: str) -> str:
+    """Fold isoleucine->leucine and selenocysteine->cysteine (pepLM vocab)."""
+    return seq.replace("I", "L").replace("U", "C")
+
+
+def _bare_peptide(seq: str) -> str:
+    """SEQ= value (e.g. 'GDPEM[Oxidation]EQK') -> folded bare amino acids."""
+    seq = _MOD_BRACKET_RE.sub("", seq)
+    seq = re.sub(r"[^A-Za-z]", "", seq).upper()
+    return _fold_il_uc(seq)
+
+
+def _read_fasta_sequences(path: Path):
+    """Yield raw protein sequences from a FASTA (no external deps)."""
+    chunk: list[str] = []
+    with open(path) as handle:
+        for line in handle:
+            if line.startswith(">"):
+                if chunk:
+                    yield "".join(chunk)
+                    chunk = []
+            else:
+                chunk.append(line.strip())
+    if chunk:
+        yield "".join(chunk)
+
+
+def _tryptic_training_peptides(fasta_path: Path) -> set[str]:
+    """Reproduce the pepLM tryptic training peptide set for one proteome.
+
+    Mirrors peppr.prepare_data.digest_protein(protein, 1, False) plus the
+    length / vocabulary filters applied in generate_plm_training_data.
+    """
+    max_missed = 1
+    max_pep = _PLM_MAX_PEP_LEN - 2   # + '$' terminator must fit in PLM_BLOCK_SIZE
+    peptides: set[str] = set()
+    for raw in _read_fasta_sequences(fasta_path):
+        protein = "." + raw                 # N-terminus marker, as in training
+        sites = sorted({0, len(protein),
+                        *(m.start() + 1 for m in _KR_RE.finditer(protein))})
+        for i in range(len(sites) - 1):
+            for j in range(i + 1, min(i + 2 + max_missed, len(sites))):
+                pep = protein[sites[i]:sites[j]]
+                if not (3 < len(pep) <= max_pep):
+                    continue
+                aa = _fold_il_uc(pep.replace(".", ""))
+                if aa and all(c in _VOCAB_AA for c in aa):
+                    peptides.add(aa)
+    return peptides
+
+
+def _kol_target_peptides(subset_mgf: Path) -> set[str]:
+    """Unique folded bare-AA peptides identified for one KoL species."""
+    peptides: set[str] = set()
+    with open(subset_mgf) as handle:
+        for line in handle:
+            if line.startswith("SEQ="):
+                aa = _bare_peptide(line[4:].strip())
+                if aa:
+                    peptides.add(aa)
+    return peptides
+
+
+def build_overlap_csv(out_path: Path, plm_species: list[str]) -> None:
+    """(Re)compute kingdom_peptide_overlap.csv from proteome FASTAs + KoL subsets.
+
+    One row per (plm_species, kol_species): ``pct_plm_in_kol`` is the percentage
+    of the KoL species' identified peptides that also appear in the pepLM's
+    tryptic training set. kol_species uses the same labels the overlap consumers
+    expect (via _overlap_kol_for_const_key).
+    """
+    subset_dir = Path(KOL_SUBSETS_DIR)
+    subsets = sorted(subset_dir.glob("*.mgf"))
+    if not subsets:
+        raise FileNotFoundError(f"no KoL subset MGFs under {subset_dir}")
+
+    # Target peptide sets are pepLM-independent — compute once.
+    targets: dict[str, set[str]] = {}
+    for mgf in subsets:
+        key = mgf.stem
+        if key not in KOL_SPECIES_DIRS:
+            print(f"  ! subset {mgf.name} has no KOL_SPECIES_DIRS key — skipping",
+                  file=sys.stderr)
+            continue
+        targets[key] = _kol_target_peptides(mgf)
+
+    rows: list[dict] = []
+    for plm in plm_species:
+        cfg = SPECIES.get(plm)
+        if cfg is None:
+            print(f"  ! no SPECIES config for plm_species={plm!r} — skipping",
+                  file=sys.stderr)
+            continue
+        fasta_path = Path(FASTAS_DIR) / cfg["fasta"]
+        print(f"[overlap] digesting {plm} proteome {fasta_path.name} ...")
+        train = _tryptic_training_peptides(fasta_path)
+        print(f"[overlap]   {len(train):,} unique training peptides")
+        for key, target in targets.items():
+            if not target:
+                continue
+            n_in = sum(1 for p in target if p in train)
+            rows.append({
+                "plm_species": plm,
+                "kol_species": _overlap_kol_for_const_key(key),
+                "pct_plm_in_kol": round(100.0 * n_in / len(target), 6),
+                "n_target_peptides": len(target),
+                "n_in_training": n_in,
+            })
+
+    if not rows:
+        raise RuntimeError("overlap build produced no rows")
+    df = pd.DataFrame(rows).sort_values(["plm_species", "pct_plm_in_kol"])
+    df.to_csv(out_path, index=False)
+    print(f"[overlap] wrote {len(df)} rows to {out_path}")
 
 # const short-key -> kol_species label in kingdom_peptide_overlap.csv when it
 # is NOT simply search_dir.replace(" ", "_").  (Epithets / Norvegicus casing.)
@@ -210,6 +361,14 @@ _PLM_STYLE: dict[str, tuple[str, str]] = {
 }
 _FALLBACK_MARKERS = ["o", "s", "^", "D", "P", "X", "v", "<", ">"]
 _FALLBACK_COLORS = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+# Legend label per pepLM species; anything not listed falls back to
+# "{plm} prior".
+_PLM_LEGEND: dict[str, str] = {
+    "human": "human prior",
+    "human_iso": "human prior",
+    "mouse": "mouse prior",
+}
 
 # plm_species (CLI / overlap CSV) -> kingdom_peptide_overlap ``kol_species`` for
 # the KoL run that uses the same species as the prior.  Those rows are dropped
@@ -373,7 +532,18 @@ def main() -> None:
         help="Annotate points with overlap CSV kol_species (folder-style) "
         "instead of common / abbreviated names.",
     )
+    parser.add_argument(
+        "--rebuild-overlap",
+        action="store_true",
+        help="Recompute the overlap CSV from proteome FASTAs + KoL subset MGFs "
+        "before plotting (otherwise it is built only when missing).",
+    )
     args = parser.parse_args()
+
+    if args.rebuild_overlap or not args.overlap_csv.exists():
+        reason = "--rebuild-overlap" if args.overlap_csv.exists() else "not found"
+        print(f"[overlap] {args.overlap_csv} {reason} — building")
+        build_overlap_csv(args.overlap_csv, args.plm_species)
 
     all_rows: list[dict] = []
     runs_per_plm: dict[str, list[dict]] = {}
@@ -454,7 +624,7 @@ def main() -> None:
         ax.scatter(
             x, y, s=70, color=color, marker=marker,
             edgecolors="white", linewidths=0.6, zorder=3,
-            label=f"{plm} prior",
+            label=_PLM_LEGEND.get(plm, f"{plm} prior"),
         )
 
         point_labels = sub["kol_species"].map(

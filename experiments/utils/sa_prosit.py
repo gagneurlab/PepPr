@@ -26,7 +26,6 @@ import sys
 
 import numpy as np
 import pandas as pd
-from depthcharge.primitives import Peptide as _DepthchargePeptide
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
 from peppr.const import PROJECT_ROOT
@@ -49,6 +48,33 @@ _PROSIT_MOD_NAMES = {
 }
 _MOD_RE = re.compile(r"\[[^\]]+\]")
 
+# Vendored from depthcharge.primitives.Peptide.massivekb_to_proforma (depthcharge
+# 0.4.8) so this module doesn't depend on depthcharge's internal `primitives`
+# API. `casanovo/pyproject.toml` pins `depthcharge-ms>=0.4.8,<0.5.0`, which does
+# provide it, but that pin isn't enforced anywhere outside the casanovo
+# submodule's own install step, so a `depthcharge-ms` already present in the
+# environment before that step (e.g. from an older per-model conda env) can
+# leave `primitives` missing or import-incompatible. This one function is
+# small enough to copy in rather than rely on it staying available.
+_MSKB_TO_UNIMOD = {
+    "+42.011": "[Acetyl]-",
+    "+43.006": "[Carbamyl]-",
+    "-17.027": "[Ammonia-loss]-",
+    "+43.006-17.027": "[+25.980265]-",  # Not in Unimod
+    "M+15.995": "M[Oxidation]",
+    "N+0.984": "N[Deamidated]",
+    "Q+0.984": "Q[Deamidated]",
+    "C+57.021": "C[Carbamidomethyl]",
+}
+
+
+def _massivekb_to_proforma(sequence: str) -> str:
+    """Convert a MassIVE-KB peptide sequence to ProForma."""
+    return "".join(
+        _MSKB_TO_UNIMOD.get(aa, aa)
+        for aa in re.split(r"(?<=.)(?=[A-Z])", sequence)
+    )
+
 
 def to_prosit_proforma(seq: str) -> Optional[str]:
     """Translate a MassIVE-KB peptide (e.g. `C+57.021ASGYTFTNYWIC+57.021WVK`)
@@ -63,7 +89,7 @@ def to_prosit_proforma(seq: str) -> Optional[str]:
     if _NTERM_MOD_RE.match(seq):
         return None
     try:
-        converted = _DepthchargePeptide.massivekb_to_proforma(seq)
+        converted = _massivekb_to_proforma(seq)
     except (TypeError, ValueError):
         return None
     if not _PROSIT_SEQUENCE_RE.fullmatch(converted):
