@@ -1,11 +1,11 @@
+# Versions here are the ones the published results were produced with.
+# torch is installed separately (see README) because it needs the CUDA wheel index.
+
 biopython==1.85
-numpy==2.2.5
+numpy==1.26.4
 pandas==2.2.3
 pygtrie==2.5.0
+pyteomics==4.7.5
+PyYAML==6.0.3
 tqdm==4.67.1
 wandb==0.19.11
-ipykernel
-pyteomics
-scikit-learn
-matplotlib
-plotnine

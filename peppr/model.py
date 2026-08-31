@@ -384,6 +384,12 @@ def _maybe_compile(model):
 
 def load_plm_model():
     import os
+    if const.PLM_CHECKPOINT_PATH is None:
+        raise FileNotFoundError(
+            "No pepLM checkpoint configured. Set DNPS_PLM_CKPT_PATH to the .pt "
+            "file, or set DNPS_DATA_PATH to the data archive root to use the "
+            "checkpoint bundled there."
+        )
     if not os.path.exists(const.PLM_CHECKPOINT_PATH):
         raise FileNotFoundError(
             f"PLM checkpoint not found at {const.PLM_CHECKPOINT_PATH!r}. "
@@ -421,6 +427,12 @@ def load_fusion_model(null_model, vocab_size, path=None, output_size=None):
         fusion_path = const.NULL_MODEL_PATH if null_model else const.FUSION_MODEL_PATH
     else:
         fusion_path = path
+    if fusion_path is None:
+        raise FileNotFoundError(
+            "No fusion model weights configured. Set DNPS_FUSION_MODEL_PATH "
+            "(or DNPS_NULL_MODEL_PATH), pass ``path=``, or set DNPS_DATA_PATH "
+            "to the data archive root to use the weights bundled there."
+        )
     if not os.path.exists(fusion_path):
         raise FileNotFoundError(
             f"Fusion model weights not found at {fusion_path!r}. "
