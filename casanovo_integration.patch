@@ -11,7 +11,7 @@ index 1afa731..f7efb9f 100644
 +# casanovo.py imports from this module, so we import it after __version__ is defined
 +from .casanovo import main  # noqa: E402
 diff --git a/casanovo/casanovo.py b/casanovo/casanovo.py
-index 6dc1f50..6ce9763 100644
+index 6dc1f50..e99af45 100644
 --- a/casanovo/casanovo.py
 +++ b/casanovo/casanovo.py
 @@ -157,6 +157,20 @@ def main() -> None:
@@ -60,7 +60,7 @@ index 6dc1f50..6ce9763 100644
              runner.writer.psms, start_time=start_time, end_time=time.time()
          )
 diff --git a/casanovo/config.yaml b/casanovo/config.yaml
-index 0e8160a..8fbc859 100644
+index 0e8160a..f32f264 100644
 --- a/casanovo/config.yaml
 +++ b/casanovo/config.yaml
 @@ -16,7 +16,7 @@
@@ -81,15 +81,6 @@ index 0e8160a..8fbc859 100644
  
  
  ###
-@@ -89,7 +89,7 @@ log_metrics: false
- # How often to log optimizer parameters in steps.
- log_every_n_steps: 50
- # Path to save Lance instances.
--lance_dir:
-+lance_dir:
- # Model validation and checkpointing frequency in training steps.
- val_check_interval: 50_000
- 
 @@ -147,7 +147,7 @@ shuffle_buffer_size: 10_000
  num_sanity_val_steps: 0
  # Calculate peptide and amino acid precision during training.
@@ -245,7 +236,7 @@ index 1830025..5873df9 100644
          return self._cache_proteoform
  
 diff --git a/casanovo/denovo/model.py b/casanovo/denovo/model.py
-index b6694fd..45f9793 100644
+index b6694fd..229f03c 100644
 --- a/casanovo/denovo/model.py
 +++ b/casanovo/denovo/model.py
 @@ -4,6 +4,7 @@ import collections
@@ -261,12 +252,12 @@ index b6694fd..45f9793 100644
  from ..denovo.transformers import PeptideDecoder, SpectrumEncoder
  from . import evaluate
 -
-+from peppr.model import load_plm_model, load_fusion_model
++from peppr.model import load_prior_model, load_fusion_model
  
  logger = logging.getLogger("casanovo")
  
 +# Global variables to avoid param registration in LightningModule
-+PLM_MODEL = None
++PRIOR_MODEL = None
 +FUSION_MODEL = None
 +
  
@@ -298,8 +289,8 @@ index b6694fd..45f9793 100644
          # Output writer during predicting.
          self.out_writer = out_writer
  
-+        global PLM_MODEL, FUSION_MODEL
-+        PLM_MODEL = load_plm_model() if use_peppr else None
++        global PRIOR_MODEL, FUSION_MODEL
++        PRIOR_MODEL = load_prior_model() if use_peppr else None
 +        FUSION_MODEL = (
 +            load_fusion_model(null_model=False, vocab_size=self.vocab_size,
 +                              output_size=None)
@@ -366,11 +357,11 @@ index b6694fd..45f9793 100644
                          memory_key_padding_mask=active_mem_masks,
                      )
  
-+                    if PLM_MODEL is not None:
-+                        _plm_in = PLM_MODEL.input_from_casanovo_vocab(
++                    if PRIOR_MODEL is not None:
++                        _plm_in = PRIOR_MODEL.input_from_casanovo_vocab(
 +                            active_tokens_dec, self.tokenizer
 +                        )
-+                        _plm_out, *_ = PLM_MODEL(_plm_in)
++                        _plm_out, *_ = PRIOR_MODEL(_plm_in)
 +                        _plm_out = _plm_out.to(active_scores.device)
 +                        _cas_vocab = self.vocab_size
 +                        _out_padded = torch.zeros(
@@ -610,7 +601,7 @@ index b6694fd..45f9793 100644
              self.out_writer.psms.append(spec_match)
  
 diff --git a/casanovo/denovo/model_runner.py b/casanovo/denovo/model_runner.py
-index e97db46..2a4e789 100644
+index e97db46..5b6036b 100644
 --- a/casanovo/denovo/model_runner.py
 +++ b/casanovo/denovo/model_runner.py
 @@ -18,6 +18,7 @@ from depthcharge.tokenizers.peptides import MskbPeptideTokenizer
@@ -625,17 +616,17 @@ index e97db46..2a4e789 100644
          self.initialize_data_module(train_paths, valid_paths)
          self.loaders.setup()
  
-+        # Optional true-resume: if DNPS_RESUME_CKPT points to a previously
++        # Optional true-resume: if PEPPR_RESUME_CKPT points to a previously
 +        # saved Lightning checkpoint, hand it to ``trainer.fit`` so that
 +        # the optimizer state, LR scheduler step, epoch/global step counter,
 +        # and RNG state are all restored. Without this Lightning reads only
 +        # the model weights via ``load_from_checkpoint`` and would restart
 +        # warmup from step 0 with a fresh AdamW optimizer.
-+        resume_ckpt = os.environ.get("DNPS_RESUME_CKPT", "").strip() or None
++        resume_ckpt = os.environ.get("PEPPR_RESUME_CKPT", "").strip() or None
 +        if resume_ckpt is not None:
 +            if not Path(resume_ckpt).exists():
 +                logger.warning(
-+                    "DNPS_RESUME_CKPT=%s does not exist; starting "
++                    "PEPPR_RESUME_CKPT=%s does not exist; starting "
 +                    "training from step 0 instead.",
 +                    resume_ckpt,
 +                )
@@ -822,11 +813,11 @@ index e97db46..2a4e789 100644
                              )
                          )
  
-+                    # Optional wandb logging, enabled via the dnps_hybrid
-+                    # convention of DNPS_WANDB=1. Run name defaults to the
++                    # Optional wandb logging, enabled via the peppr
++                    # convention of PEPPR_WANDB=1. Run name defaults to the
 +                    # basename of the output directory; project defaults to
 +                    # ``dnps`` to match the rest of the repo.
-+                    if os.environ.get("DNPS_WANDB", "0") in (
++                    if os.environ.get("PEPPR_WANDB", "0") in (
 +                        "1",
 +                        "true",
 +                        "True",
@@ -854,7 +845,7 @@ index e97db46..2a4e789 100644
 +                            )
 +                        except Exception as exc:  # pragma: no cover
 +                            logger.warning(
-+                                "DNPS_WANDB=1 but WandbLogger init failed; "
++                                "PEPPR_WANDB=1 but WandbLogger init failed; "
 +                                "continuing without wandb. Error: %s",
 +                                exc,
 +                            )

@@ -2,11 +2,11 @@
 
 Loads cas-backbone teacher scores + pepLM teacher scores and trains a fusion
 head plus a null (cas-only) baseline.  Backbone is selected via the
-``DNPS_FUSION_BACKBONE`` env var: ``casanovo`` (default) saves to
+``PEPPR_BACKBONE`` env var: ``casanovo`` (default) saves to
 ``const.FUSION_MODEL_PATH`` / ``const.NULL_MODEL_PATH``; ``contranovo`` saves to
 ``const.CONTRANOVO_FUSION_MODEL_PATH`` / ``const.CONTRANOVO_NULL_MODEL_PATH``
-(both require ``DNPS_CONTRANOVO_FUSION_MODEL_PATH`` /
-``DNPS_CONTRANOVO_NULL_MODEL_PATH`` to be set to an experiment-specific path,
+(both require ``PEPPR_CONTRANOVO_FUSION_PATH`` /
+``PEPPR_CONTRANOVO_NULL_PATH`` to be set to an experiment-specific path,
 to avoid overwriting the shared Apr-27 checkpoints).
 Backbone selection only swaps file paths; the fusion head architecture
 (asymmetric BN-cas + LN-plm) and loss are identical across backbones.
@@ -16,7 +16,7 @@ MassIVE-KB PSM corpus configured in :mod:`peppr.const`.
 
 Optional augmentations
 ----------------------
-``DNPS_FUSION_PLM_TOP2_SWAP_FRAC`` (float, default 0.5):
+``PEPPR_FUSION_PRIOR_TOP2_SWAP_FRAC`` (float, default 0.5):
     Legacy top-2 swap: swap the values of the top-1 and top-2 pepLM logits
     for a Bernoulli(frac) sample of rows. Only creates training signal for
     the case where the correct token is the runner-up.
@@ -36,10 +36,10 @@ from peppr.model import FusionModel
 # Backbone selection: ``casanovo`` (default) or ``contranovo``. The fusion
 # head architecture and loss are identical; only the input-side teacher
 # artifacts and output checkpoint paths differ.
-_BACKBONE = os.environ.get('DNPS_FUSION_BACKBONE', 'casanovo').lower()
+_BACKBONE = os.environ.get('PEPPR_BACKBONE', 'casanovo').lower()
 if _BACKBONE not in ('casanovo', 'contranovo'):
     raise RuntimeError(
-        f"DNPS_FUSION_BACKBONE={_BACKBONE!r}; expected 'casanovo' or 'contranovo'."
+        f"PEPPR_BACKBONE={_BACKBONE!r}; expected 'casanovo' or 'contranovo'."
     )
 
 config = {
@@ -48,13 +48,13 @@ config = {
     'vocab_size': len(const.VOCAB),
     'batch_size': 8192,
     'learning_rate': 0.002,
-    'num_epochs': int(os.environ.get('DNPS_FUSION_EPOCHS', 8)),
+    'num_epochs': int(os.environ.get('PEPPR_FUSION_EPOCHS', 8)),
     'optimizer': 'Adam',
     'loss_function': 'CrossEntropyLoss',
     'lr_decay_factor': 0.7,
     'seed': const.SEED,
-    'plm_top2_swap_frac': float(
-        os.environ.get('DNPS_FUSION_PLM_TOP2_SWAP_FRAC', '0.5')
+    'prior_top2_swap_frac': float(
+        os.environ.get('PEPPR_FUSION_PRIOR_TOP2_SWAP_FRAC', '0.5')
     ),
 }
 
@@ -98,10 +98,10 @@ def _apply_plm_top2_swap(
 def load_data(Y_path, scores_plm_path, scores_casanovo_path):
     Y = torch.load(Y_path)
     scores_casanovo = torch.load(scores_casanovo_path, map_location=const.DEVICE)
-    scores_plm = torch.load(scores_plm_path, map_location=const.DEVICE)
+    scores_prior = torch.load(scores_plm_path, map_location=const.DEVICE)
 
     casanovo_vocab_size = scores_casanovo.size(2)
-    plm_vocab_size = scores_plm.size(2)
+    prior_vocab_size = scores_prior.size(2)
 
     Y = Y.reshape(-1)
     # IL-vocab fusion_y uses 0 (Casanovo padding) as the padding sentinel,
@@ -110,11 +110,11 @@ def load_data(Y_path, scores_plm_path, scores_casanovo_path):
     padding_mask = Y == 0
     Y = Y[~padding_mask]
     scores_casanovo = scores_casanovo.reshape(-1, casanovo_vocab_size)[~padding_mask]
-    scores_plm = scores_plm.reshape(-1, plm_vocab_size)[~padding_mask]
-    X = torch.cat([scores_casanovo, scores_plm], dim=1)
+    scores_prior = scores_prior.reshape(-1, prior_vocab_size)[~padding_mask]
+    X = torch.cat([scores_casanovo, scores_prior], dim=1)
     dataset = TensorDataset(X, Y)
     loader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=True)
-    return loader, casanovo_vocab_size, plm_vocab_size
+    return loader, casanovo_vocab_size, prior_vocab_size
 
 
 def load_model(input_size, output_size, casanovo_vocab_size=None):
@@ -157,8 +157,8 @@ def main():
         y_test_path  = const.FUSION_Y_TEST_PATH
         cas_train_path = const.CASANOVO_TEACHER_SCORES_TRAIN_PATH
         cas_test_path  = const.CASANOVO_TEACHER_SCORES_TEST_PATH
-        plm_train_path = const.PLM_PSM_TEACHER_SCORES_TRAIN_PATH
-        plm_test_path  = const.PLM_PSM_TEACHER_SCORES_TEST_PATH
+        prior_train_path = const.PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH
+        prior_test_path  = const.PRIOR_PSM_TEACHER_SCORES_TEST_PATH
         fusion_out_path = const.FUSION_MODEL_PATH
         null_out_path   = const.NULL_MODEL_PATH
     else:  # contranovo
@@ -166,8 +166,8 @@ def main():
         y_test_path   = const.CONTRANOVO_FUSION_Y_TEST_PATH
         cas_train_path = const.CONTRANOVO_TEACHER_SCORES_TRAIN_PATH
         cas_test_path  = const.CONTRANOVO_TEACHER_SCORES_TEST_PATH
-        plm_train_path = const.CONTRANOVO_PLM_PSM_TEACHER_SCORES_TRAIN_PATH
-        plm_test_path  = const.CONTRANOVO_PLM_PSM_TEACHER_SCORES_TEST_PATH
+        prior_train_path = const.CONTRANOVO_PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH
+        prior_test_path  = const.CONTRANOVO_PRIOR_PSM_TEACHER_SCORES_TEST_PATH
         fusion_out_path = const.CONTRANOVO_FUSION_MODEL_PATH
         null_out_path   = const.CONTRANOVO_NULL_MODEL_PATH
         # Guard against clobbering the shared Apr-27 ContraNovo checkpoints:
@@ -181,29 +181,29 @@ def main():
         if fusion_out_path == _shared or null_out_path == _shared_null:
             raise RuntimeError(
                 "Refusing to overwrite the shared ContraNovo checkpoints. Set "
-                "DNPS_CONTRANOVO_FUSION_MODEL_PATH and DNPS_CONTRANOVO_NULL_MODEL_PATH "
+                "PEPPR_CONTRANOVO_FUSION_PATH and PEPPR_CONTRANOVO_NULL_PATH "
                 "to an experiment-specific path."
             )
     print(f"[backbone] {_BACKBONE}  fusion_out={fusion_out_path}")
     os.makedirs(os.path.dirname(fusion_out_path), exist_ok=True)
     os.makedirs(os.path.dirname(null_out_path), exist_ok=True)
 
-    train_loader, casanovo_vocab_size, plm_vocab_size = load_data(
+    train_loader, casanovo_vocab_size, prior_vocab_size = load_data(
         y_train_path,
-        plm_train_path,
+        prior_train_path,
         cas_train_path,
     )
     val_loader, _, _ = load_data(
         y_test_path,
-        plm_test_path,
+        prior_test_path,
         cas_test_path,
     )
-    print(f"casanovo_vocab_size={casanovo_vocab_size}  plm_vocab_size={plm_vocab_size}")
+    print(f"casanovo_vocab_size={casanovo_vocab_size}  prior_vocab_size={prior_vocab_size}")
 
     fusion_output_size = casanovo_vocab_size
 
     fusion_model, fusion_opt, fusion_sched = load_model(
-        casanovo_vocab_size + plm_vocab_size, fusion_output_size,
+        casanovo_vocab_size + prior_vocab_size, fusion_output_size,
         casanovo_vocab_size=casanovo_vocab_size,
     )
     null_model, null_opt, null_sched = load_model(casanovo_vocab_size, casanovo_vocab_size)
@@ -213,13 +213,13 @@ def main():
     fusion_criterion = nn.CrossEntropyLoss()
     null_criterion = nn.CrossEntropyLoss()
 
-    plm_top2_swap_frac = config['plm_top2_swap_frac']
-    if plm_top2_swap_frac > 0.0:
+    prior_top2_swap_frac = config['prior_top2_swap_frac']
+    if prior_top2_swap_frac > 0.0:
         print(
-            f"[aug] pepLM top-2 logit swap on {plm_top2_swap_frac*100:.2f}% "
+            f"[aug] pepLM top-2 logit swap on {prior_top2_swap_frac*100:.2f}% "
             f"of training tokens per batch (val unaffected)."
         )
-    use_wandb = os.environ.get('DNPS_WANDB', '0') in ('1', 'true', 'True')
+    use_wandb = os.environ.get('PEPPR_WANDB', '0') in ('1', 'true', 'True')
     if use_wandb:
         wandb.init(
             project=const.WANDB_PROJECT,
@@ -252,7 +252,7 @@ def main():
             batch_Y = batch_Y.to(const.DEVICE).long()
 
             n_swapped = _apply_plm_top2_swap(
-                batch_X_fusion, casanovo_vocab_size, plm_top2_swap_frac,
+                batch_X_fusion, casanovo_vocab_size, prior_top2_swap_frac,
             )
             total_swapped += n_swapped
             total_rows += batch_X_fusion.size(0)
@@ -280,8 +280,8 @@ def main():
         null_sched.step()
 
         swap_rate = total_swapped / total_rows if total_rows else 0.0
-        any_swap = plm_top2_swap_frac > 0.0
-        swap_str = f" plm_swap_rate={swap_rate*100:.2f}%" if any_swap else ""
+        any_swap = prior_top2_swap_frac > 0.0
+        swap_str = f" prior_swap_rate={swap_rate*100:.2f}%" if any_swap else ""
         print(
             f"[epoch {epoch + 1}] "
             f"train/loss_fusion={train_loss_fusion:.4f} train/loss_null={train_loss_null:.4f} "
@@ -298,8 +298,8 @@ def main():
                 'val/loss_null': val_loss_null,
                 'learning_rate': fusion_opt.param_groups[0]['lr'],
             }
-            if plm_top2_swap_frac > 0.0:
-                log['train/plm_top2_swap_rate'] = swap_rate
+            if prior_top2_swap_frac > 0.0:
+                log['train/prior_top2_swap_rate'] = swap_rate
             wandb.log(log)
 
     os.makedirs(os.path.dirname(fusion_out_path), exist_ok=True)

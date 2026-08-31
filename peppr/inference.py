@@ -6,7 +6,7 @@ import re
 import tempfile
 from peppr import const
 from tqdm import tqdm
-from peppr.model import load_plm_model, load_fusion_model
+from peppr.model import load_prior_model, load_fusion_model
 import glob
 
 
@@ -15,7 +15,7 @@ CASANOVO_CONFIG_DEFAULT = const.CASANOVO_CONFIG_YAML
 
 def resolve_casanovo_config():
     lance_dir = os.environ.get(
-        "DNPS_LANCE_DIR", os.path.join(const.WORK_DIR, "lance")
+        "PEPPR_LANCE_DIR", os.path.join(const.WORK_DIR, "lance")
     )
     os.makedirs(lance_dir, exist_ok=True)
     with open(CASANOVO_CONFIG_DEFAULT) as f:
@@ -31,8 +31,8 @@ def resolve_casanovo_config():
 
 # Benchmark datasets are defined by whoever is driving inference, not by peppr:
 # the paper analyses register theirs in experiments.paths, and a downstream user
-# can point DNPS_DATASETS_MODULE at any module exposing DatasetPaths attributes.
-DATASETS_MODULE = os.environ.get("DNPS_DATASETS_MODULE", "peppr.const")
+# can point PEPPR_DATASETS_MODULE at any module exposing DatasetPaths attributes.
+DATASETS_MODULE = os.environ.get("PEPPR_DATASETS_MODULE", "peppr.const")
 
 
 def resolve_dataset(name: str, module_name: str | None = None):
@@ -44,15 +44,15 @@ def resolve_dataset(name: str, module_name: str | None = None):
     if not hasattr(module, name):
         raise ValueError(
             f"No dataset named {name!r} in {module_name}. Set "
-            "DNPS_DATASETS_MODULE to the module that defines it "
+            "PEPPR_DATASETS_MODULE to the module that defines it "
             "(the paper analyses use experiments.paths)."
         )
     return getattr(module, name)
 
 
 
-def predict_plm_teacher(model, X, batch_size):
-    scores = torch.zeros(size=(X.shape[0], const.PLM_BLOCK_SIZE, len(const.VOCAB)), device=const.DEVICE)
+def predict_prior_teacher(model, X, batch_size):
+    scores = torch.zeros(size=(X.shape[0], const.PRIOR_BLOCK_SIZE, len(const.VOCAB)), device=const.DEVICE)
     with torch.no_grad():
         for i in tqdm(range(0, len(X), batch_size), total=len(X)//batch_size):
             end = min(i+batch_size, len(X))
@@ -61,7 +61,7 @@ def predict_plm_teacher(model, X, batch_size):
     return scores
 
 
-MODES = ("plm_teacher", "fusion_teacher", "contranovo", "auto")
+MODES = ("prior_teacher", "fusion_teacher", "contranovo", "auto")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -81,40 +81,40 @@ def main(argv: list[str] | None = None) -> int:
     torch.cuda.manual_seed(const.SEED)
     torch.set_float32_matmul_precision("high")
 
-    if model_type == 'plm_teacher':
-        plm_model = load_plm_model()
+    if model_type == 'prior_teacher':
+        prior_model = load_prior_model()
         batch_size = 4096
 
-        X_plm_train = torch.load(const.PLM_PSM_X_TRAIN_PATH, map_location=const.DEVICE)
-        scores_plm_train = predict_plm_teacher(plm_model, X_plm_train, batch_size)
-        torch.save(scores_plm_train, const.PLM_PSM_TEACHER_SCORES_TRAIN_PATH)
-        print("Saved PLM scores for train")
+        X_prior_train = torch.load(const.PRIOR_PSM_X_TRAIN_PATH, map_location=const.DEVICE)
+        scores_prior_train = predict_prior_teacher(prior_model, X_prior_train, batch_size)
+        torch.save(scores_prior_train, const.PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH)
+        print("Saved prior scores for train")
 
-        X_plm_test = torch.load(const.PLM_PSM_X_TEST_PATH, map_location=const.DEVICE)
-        scores_plm_test = predict_plm_teacher(plm_model, X_plm_test, batch_size)
-        torch.save(scores_plm_test, const.PLM_PSM_TEACHER_SCORES_TEST_PATH)
-        print("Saved PLM scores for test")
+        X_prior_test = torch.load(const.PRIOR_PSM_X_TEST_PATH, map_location=const.DEVICE)
+        scores_prior_test = predict_prior_teacher(prior_model, X_prior_test, batch_size)
+        torch.save(scores_prior_test, const.PRIOR_PSM_TEACHER_SCORES_TEST_PATH)
+        print("Saved prior scores for test")
 
-        # X_plm_plm = torch.load(const.PLM_SEQ_X_PATH, map_location=const.DEVICE)
-        # scores_plm_plm = predict_plm_teacher(plm_model, X_plm_plm, batch_size)
-        # torch.save(scores_plm_plm, const.PLM_SEQ_TEACHER_SCORES_PATH)
+        # X_plm_plm = torch.load(const.PRIOR_SEQ_X_PATH, map_location=const.DEVICE)
+        # scores_plm_plm = predict_prior_teacher(prior_model, X_plm_plm, batch_size)
+        # torch.save(scores_plm_plm, const.PRIOR_SEQ_TEACHER_SCORES_PATH)
     elif model_type == 'fusion_teacher':
-        scores_plm_test = torch.load(const.PLM_PSM_TEACHER_SCORES_TEST_PATH)
+        scores_prior_test = torch.load(const.PRIOR_PSM_TEACHER_SCORES_TEST_PATH)
         scores_casanovo_test = torch.load(const.CASANOVO_TEACHER_SCORES_TEST_PATH, map_location=const.DEVICE)
-        print("Loaded PLM and casanovo scores")
-        X_fusion = torch.cat([scores_casanovo_test, scores_plm_test], dim=2)
+        print("Loaded prior and casanovo scores")
+        X_fusion = torch.cat([scores_casanovo_test, scores_prior_test], dim=2)
 
         vocab_size = scores_casanovo_test.shape[2]
         fusion_model = load_fusion_model(null_model=False, vocab_size=vocab_size)
         null_model = load_fusion_model(null_model=True, vocab_size=vocab_size)
         batch_size = 4096
-        scores_fusion = torch.zeros(size=(X_fusion.shape[0], const.PLM_BLOCK_SIZE, vocab_size), device=const.DEVICE)
+        scores_fusion = torch.zeros(size=(X_fusion.shape[0], const.PRIOR_BLOCK_SIZE, vocab_size), device=const.DEVICE)
         scores_null = torch.zeros_like(scores_fusion)
         with torch.no_grad():
             for i in range(0, len(X_fusion), batch_size):
                 end = min(i+batch_size, len(X_fusion))
-                scores_fusion[i:end] = fusion_model(X_fusion[i:end].view(-1, X_fusion.size(2))).view(-1, const.PLM_BLOCK_SIZE, vocab_size)
-                scores_null[i:end] = null_model(scores_casanovo_test[i:end].view(-1, scores_casanovo_test.size(2))).view(-1, const.PLM_BLOCK_SIZE, vocab_size)
+                scores_fusion[i:end] = fusion_model(X_fusion[i:end].view(-1, X_fusion.size(2))).view(-1, const.PRIOR_BLOCK_SIZE, vocab_size)
+                scores_null[i:end] = null_model(scores_casanovo_test[i:end].view(-1, scores_casanovo_test.size(2))).view(-1, const.PRIOR_BLOCK_SIZE, vocab_size)
                 print(f"Processed {i} of {len(X_fusion)}")
 
         torch.save(scores_fusion, const.FUSION_SCORES_TEACHER_TEST_PATH)
@@ -125,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
         contranovo_python = const.CONTRANOVO_PYTHON
         if not contranovo_python:
             raise RuntimeError(
-                "ContraNovo inference requires DNPS_CONTRANOVO_PYTHON to point "
+                "ContraNovo inference requires PEPPR_CONTRANOVO_PYTHON to point "
                 "to the ContraNovo environment's Python executable."
             )
         contranovo_ckpt = os.path.join(contranovo_root, "ContraNovo", "ContraNovo.ckpt")
@@ -135,16 +135,16 @@ def main(argv: list[str] | None = None) -> int:
         os.makedirs(out_root, exist_ok=True)
 
         cn_dataset = resolve_dataset(
-            os.environ.get("DNPS_CONTRANOVO_DATASET", "NINE_SPECIES_DATASET")
+            os.environ.get("PEPPR_CONTRANOVO_DATASET", "NINE_SPECIES_DATASET")
         )
         mgf_files = sorted(glob.glob(cn_dataset.final_mgf_glob))
         if not mgf_files:
             raise FileNotFoundError(
                 f"No MGFs matched {cn_dataset.final_mgf_glob!r}; "
-                "run prepare_data first or set DNPS_SPECIES correctly."
+                "run prepare_data first or set PEPPR_SPECIES correctly."
             )
 
-        # ContraNovo's model.py imports peppr for the PLM/fusion loaders, but
+        # ContraNovo's model.py imports peppr for the prior/fusion loaders, but
         # the khsam_contranovo env doesn't have peppr installed. Expose this
         # checkout on PYTHONPATH for the subprocess so the import resolves.
         peppr_root = const.PROJECT_ROOT
@@ -190,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         parser.add_argument(
             "--use-peppr", choices=["true", "false", "both"], default="both",
-            help="Run with PLM fusion (true), without (false), or both (default).",
+            help="Run with prior fusion (true), without (false), or both (default).",
         )
         args = parser.parse_args(argv[1:])
 
@@ -207,13 +207,13 @@ def main(argv: list[str] | None = None) -> int:
 
         casanovo_config = resolve_casanovo_config()
         if casanovo_config != CASANOVO_CONFIG_DEFAULT:
-            print(f"[lance-isolation] casanovo config: {casanovo_config}  (lance_dir={os.environ.get('DNPS_LANCE_DIR')})")
+            print(f"[lance-isolation] casanovo config: {casanovo_config}  (lance_dir={os.environ.get('PEPPR_LANCE_DIR')})")
 
         for dataset in datasets:
             shard_mgfs = sorted(glob.glob(dataset.final_mgf_glob))
-            # Optional MGF sharding for parallel SLURM workers: DNPS_MGF_SHARD="i/n"
+            # Optional MGF sharding for parallel SLURM workers: PEPPR_MGF_SHARD="i/n"
             # (0-indexed) runs only files [i::n] (round-robin, balances file sizes).
-            shard = os.environ.get("DNPS_MGF_SHARD")
+            shard = os.environ.get("PEPPR_MGF_SHARD")
             if shard:
                 shard_i, shard_n = (int(x) for x in shard.split("/"))
                 shard_mgfs = shard_mgfs[shard_i::shard_n]

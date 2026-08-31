@@ -7,17 +7,17 @@ current_file_path = Path(__file__).resolve()
 current_dir = current_file_path.parent.parent
 PROJECT_ROOT = str(current_dir)
 
-# Data-archive contract. DNPS_DATA_PATH points at the extracted archive root;
+# Data-archive contract. PEPPR_DATA_PATH points at the extracted archive root;
 # code and bundled configuration continue to resolve relative to PROJECT_ROOT.
 #
 # It is OPTIONAL. Training, data preparation and the paper-reproduction
 # workflows all need it, but plain inference does not: point
-# DNPS_PLM_CKPT_PATH / DNPS_FUSION_MODEL_PATH / DNPS_NULL_MODEL_PATH at
+# PEPPR_PRIOR_PATH / PEPPR_FUSION_PATH / PEPPR_NULL_PATH at
 # checkpoints directly and `import peppr` works with no archive present.
 # Paths derived from the archive are None when it is unconfigured, so an
-# unset DNPS_DATA_PATH surfaces where the path is actually used rather than
+# unset PEPPR_DATA_PATH surfaces where the path is actually used rather than
 # at import time.
-_data_path = os.environ.get("DNPS_DATA_PATH")
+_data_path = os.environ.get("PEPPR_DATA_PATH")
 DATA_PATH = os.path.abspath(os.path.expanduser(_data_path)) if _data_path else None
 
 
@@ -25,10 +25,10 @@ def require_data_path(what: str = "this operation") -> str:
     """Return DATA_PATH, or raise with an actionable message if it is unset."""
     if DATA_PATH is None:
         raise RuntimeError(
-            f"DNPS_DATA_PATH is required for {what}; set it to the extracted "
+            f"PEPPR_DATA_PATH is required for {what}; set it to the extracted "
             "data archive root. Inference alone does not need it if "
-            "DNPS_PLM_CKPT_PATH, DNPS_FUSION_MODEL_PATH and "
-            "DNPS_NULL_MODEL_PATH are set directly."
+            "PEPPR_PRIOR_PATH, PEPPR_FUSION_PATH and "
+            "PEPPR_NULL_PATH are set directly."
         )
     return DATA_PATH
 
@@ -78,10 +78,10 @@ SPECIES = {
     "antibody_mouse": {"benchmark_dir": "Mus-musculus",         "fasta": "antibody_mouse.fasta",             "run_name": "antibody_mouse", "url": ""},
 }
 
-ACTIVE_SPECIES = os.environ.get("DNPS_SPECIES", "human")
+ACTIVE_SPECIES = os.environ.get("PEPPR_SPECIES", "human")
 _species_cfg = SPECIES[ACTIVE_SPECIES]
-THERMO_RAW_FILE_PARSER = os.environ.get("DNPS_THERMO_RAW_FILE_PARSER")
-CONTRANOVO_PYTHON = os.environ.get("DNPS_CONTRANOVO_PYTHON")
+THERMO_RAW_FILE_PARSER = os.environ.get("PEPPR_THERMO_RAW_FILE_PARSER")
+CONTRANOVO_PYTHON = os.environ.get("PEPPR_CONTRANOVO_PYTHON")
 CASANOVO_CONFIG_YAML = os.path.join(current_dir, "casanovo", "casanovo", "config.yaml")
 CASANOVO_DEFAULT_CHECKPOINT = "https://github.com/Noble-Lab/casanovo/releases/download/v5.0.0/casanovo_v5_0_0.ckpt"
 CONTRANOVO_CONFIG_YAML = os.path.join(
@@ -94,16 +94,16 @@ RESULT_RUN_PATH = _under_data("results", RUN_NAME)
 FASTA_PATH = _under(FASTAS_DIR, _species_cfg["fasta"])
 # Human PepPr always uses the isoform-inclusive pepLM; nine-species benchmark
 # species "human" keeps the canonical proteome FASTA above.
-HUMAN_PEPPR_PLM = "human_iso"
+HUMAN_PEPPR_PRIOR = "human_iso"
 HUMAN_PEPPR_FUSION_RUN = "human_iso_asymbnln"
-_default_plm_species = HUMAN_PEPPR_PLM if ACTIVE_SPECIES == "human" else ACTIVE_SPECIES
-PLM_SPECIES = os.environ.get("DNPS_PLM_SPECIES", _default_plm_species)
-_plm_species_cfg = SPECIES[PLM_SPECIES]
-PLM_RUN_PATH = _under_data("work", _plm_species_cfg["run_name"])
-PLM_MODEL_RUN_PATH = _under_data("models", _plm_species_cfg["run_name"])
+_default_prior_species = HUMAN_PEPPR_PRIOR if ACTIVE_SPECIES == "human" else ACTIVE_SPECIES
+PRIOR_SPECIES = os.environ.get("PEPPR_PRIOR_SPECIES", _default_prior_species)
+_prior_species_cfg = SPECIES[PRIOR_SPECIES]
+PRIOR_RUN_PATH = _under_data("work", _prior_species_cfg["run_name"])
+PRIOR_MODEL_RUN_PATH = _under_data("models", _prior_species_cfg["run_name"])
 SHARED_RUN_PATH = _under_data("work", "massivekb")
 SHARED_MODEL_RUN_PATH = _under_data("models", "casanovo")
-_EXP_DIR = os.environ.get("DNPS_EXP_DIR")
+_EXP_DIR = os.environ.get("PEPPR_EXP_DIR")
 def _exp(default_path: str | None) -> str | None:
     if _EXP_DIR is None or default_path is None:
         return default_path
@@ -140,75 +140,75 @@ CONTRANOVO_TEACHER_SCORES_TRAIN_PATH = _under(SHARED_RUN_PATH, "contranovo_teach
 CONTRANOVO_TEACHER_SCORES_TEST_PATH = _under(SHARED_RUN_PATH, "contranovo_teacher_scores_test.pt")
 CONTRANOVO_FUSION_Y_TRAIN_PATH = _under(SHARED_RUN_PATH, "contranovo_fusion_y_train.pt")
 CONTRANOVO_FUSION_Y_TEST_PATH = _under(SHARED_RUN_PATH, "contranovo_fusion_y_test.pt")
-CONTRANOVO_PLM_PSM_X_TRAIN_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_x_train.pt")
-CONTRANOVO_PLM_PSM_X_TEST_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_x_test.pt")
-CONTRANOVO_PLM_PSM_TEACHER_SCORES_TRAIN_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_teacher_scores_train.pt")
-CONTRANOVO_PLM_PSM_TEACHER_SCORES_TEST_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_teacher_scores_test.pt")
+CONTRANOVO_PRIOR_PSM_X_TRAIN_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_x_train.pt")
+CONTRANOVO_PRIOR_PSM_X_TEST_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_x_test.pt")
+CONTRANOVO_PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_teacher_scores_train.pt")
+CONTRANOVO_PRIOR_PSM_TEACHER_SCORES_TEST_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_teacher_scores_test.pt")
 CONTRANOVO_FUSION_MODEL_PATH = os.environ.get(
-    "DNPS_CONTRANOVO_FUSION_MODEL_PATH"
+    "PEPPR_CONTRANOVO_FUSION_PATH"
 ) or _under(SHARED_MODEL_RUN_PATH, "contranovo_fusion_model.pth")
 CONTRANOVO_NULL_MODEL_PATH = os.environ.get(
-    "DNPS_CONTRANOVO_NULL_MODEL_PATH"
+    "PEPPR_CONTRANOVO_NULL_PATH"
 ) or _under(SHARED_MODEL_RUN_PATH, "contranovo_null_model.pth")
 
 # --- Per-species files (live under RUN_PATH, different for each species) ---
-# DNPS_PLM_DATA_SUFFIX lets experiments write versioned training data (e.g.
+# PEPPR_PRIOR_DATA_SUFFIX lets experiments write versioned training data (e.g.
 # "_sw_v2") without overwriting the baseline files.
-_plm_data_suffix = os.environ.get("DNPS_PLM_DATA_SUFFIX", "")
-PLM_SEQ_X_PATH = _under(PLM_RUN_PATH, f'plm_seq_x{_plm_data_suffix}.pt')
-PLM_SEQ_Y_PATH = _under(PLM_RUN_PATH, f'plm_seq_y{_plm_data_suffix}.pt')
-PLM_SEQ_COUNTS_PATH = _under(PLM_RUN_PATH, f'plm_seq_counts{_plm_data_suffix}.pkl')
-PLM_SEQ_TEACHER_SCORES_PATH = _under(PLM_RUN_PATH, f'plm_seq_teacher_scores.pt')
-PLM_PSM_X_TRAIN_PATH = _exp(_under(RUN_PATH, f'plm_psm_x_train.pt'))
-PLM_PSM_X_TEST_PATH = _exp(_under(RUN_PATH, f'plm_psm_x_test.pt'))
-PLM_PSM_TEACHER_SCORES_TRAIN_PATH = _exp(_under(RUN_PATH, f'plm_psm_teacher_scores_train.pt'))
-PLM_PSM_TEACHER_SCORES_TEST_PATH = _exp(_under(RUN_PATH, f'plm_psm_teacher_scores_test.pt'))
-PLM_CHECKPOINT_PATH = os.environ.get("DNPS_PLM_CKPT_PATH") or _under(
-    PLM_MODEL_RUN_PATH, "plm_ckpt.pt"
+_prior_data_suffix = os.environ.get("PEPPR_PRIOR_DATA_SUFFIX", "")
+PRIOR_SEQ_X_PATH = _under(PRIOR_RUN_PATH, f'plm_seq_x{_prior_data_suffix}.pt')
+PRIOR_SEQ_Y_PATH = _under(PRIOR_RUN_PATH, f'plm_seq_y{_prior_data_suffix}.pt')
+PRIOR_SEQ_COUNTS_PATH = _under(PRIOR_RUN_PATH, f'plm_seq_counts{_prior_data_suffix}.pkl')
+PRIOR_SEQ_TEACHER_SCORES_PATH = _under(PRIOR_RUN_PATH, f'plm_seq_teacher_scores.pt')
+PRIOR_PSM_X_TRAIN_PATH = _exp(_under(RUN_PATH, f'plm_psm_x_train.pt'))
+PRIOR_PSM_X_TEST_PATH = _exp(_under(RUN_PATH, f'plm_psm_x_test.pt'))
+PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH = _exp(_under(RUN_PATH, f'plm_psm_teacher_scores_train.pt'))
+PRIOR_PSM_TEACHER_SCORES_TEST_PATH = _exp(_under(RUN_PATH, f'plm_psm_teacher_scores_test.pt'))
+PRIOR_CHECKPOINT_PATH = os.environ.get("PEPPR_PRIOR_PATH") or _under(
+    PRIOR_MODEL_RUN_PATH, "plm_ckpt.pt"
 )
 
 # Fusion head is trained from Casanovo + pepLM teacher scores on the same PSM
-# rows; PLM scores live under RUN_PATH (per ACTIVE_SPECIES).  Default the
-# checkpoint next to null_model.pth under RUN_PATH so e.g. DNPS_SPECIES=mouse
+# rows; prior scores live under RUN_PATH (per ACTIVE_SPECIES).  Default the
+# checkpoint next to null_model.pth under RUN_PATH so e.g. PEPPR_SPECIES=mouse
 # loads mus_musculus/fusion_model.pth instead of silently using the shared
 # human checkpoint under casanovo/.  Human PepPr uses the asymmetric head
 # trained against the human_iso pepLM (human_iso_asymbnln/).
 _fusion_model_run = (
-    HUMAN_PEPPR_FUSION_RUN if PLM_SPECIES == HUMAN_PEPPR_PLM else RUN_NAME
+    HUMAN_PEPPR_FUSION_RUN if PRIOR_SPECIES == HUMAN_PEPPR_PRIOR else RUN_NAME
 )
-FUSION_MODEL_PATH = os.environ.get("DNPS_FUSION_MODEL_PATH") or _under_data(
+FUSION_MODEL_PATH = os.environ.get("PEPPR_FUSION_PATH") or _under_data(
     "models", _fusion_model_run, "fusion_model.pth"
 )
 FUSION_SCORES_TEACHER_TEST_PATH = _under(RUN_PATH, 'fusion_scores_teacher_test.pt')
-NULL_MODEL_PATH = os.environ.get("DNPS_NULL_MODEL_PATH") or _under_data(
+NULL_MODEL_PATH = os.environ.get("PEPPR_NULL_PATH") or _under_data(
     "models", _fusion_model_run, "null_model.pth"
 )
 NULL_SCORES_TEACHER_TEST_PATH = _under(RUN_PATH, 'null_scores_teacher_test.pt')
 
-PLM_INIT_FROM_CHECKPOINT = os.environ.get("DNPS_PLM_INIT_FROM_CHECKPOINT", "0").lower() in ("1", "true", "yes")
-PLM_RAND_SUFFIX_FULL_LEN = os.environ.get("DNPS_PLM_RAND_SUFFIX_FULL_LEN", "0").lower() in ("1", "true", "yes")
-PLM_EVAL_INTERVAL = 1000
-PLM_LOG_INTERVAL = 50
-PLM_EVAL_ITERS = 10
-PLM_EVAL_ONLY = False # if True, script exits right after the first eval
-PLM_N_LAYER = 12
-PLM_N_HEAD = 12
-PLM_N_EMBD = 768
-PLM_LEARNING_RATE = 2e-4
-PLM_MAX_ITERS = int(os.environ.get("DNPS_PLM_MAX_ITERS", 750_000))
-PLM_WEIGHT_DECAY = 0.0
-PLM_BETA1 = 0.9
-PLM_BETA2 = 0.95
-PLM_GRAD_CLIP = 1.0
-PLM_WARMUP_ITERS = 50_000
+PRIOR_INIT_FROM_CHECKPOINT = os.environ.get("PEPPR_PRIOR_INIT_FROM_CHECKPOINT", "0").lower() in ("1", "true", "yes")
+PRIOR_RAND_SUFFIX_FULL_LEN = os.environ.get("PEPPR_PRIOR_RAND_SUFFIX_FULL_LEN", "0").lower() in ("1", "true", "yes")
+PRIOR_EVAL_INTERVAL = 1000
+PRIOR_LOG_INTERVAL = 50
+PRIOR_EVAL_ITERS = 10
+PRIOR_EVAL_ONLY = False # if True, script exits right after the first eval
+PRIOR_N_LAYER = 12
+PRIOR_N_HEAD = 12
+PRIOR_N_EMBD = 768
+PRIOR_LEARNING_RATE = 2e-4
+PRIOR_MAX_ITERS = int(os.environ.get("PEPPR_PRIOR_MAX_ITERS", 750_000))
+PRIOR_WEIGHT_DECAY = 0.0
+PRIOR_BETA1 = 0.9
+PRIOR_BETA2 = 0.95
+PRIOR_GRAD_CLIP = 1.0
+PRIOR_WARMUP_ITERS = 50_000
 RAND_LOSS_WEIGHT = 0.05
-PLM_MIN_LR = PLM_LEARNING_RATE / 10
+PRIOR_MIN_LR = PRIOR_LEARNING_RATE / 10
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 DTYPE = torch.bfloat16 # float16 if CPU
 WANDB_PROJECT = 'dnps'
 SEED=420
-PLM_BATCH_SIZE = 384
-PLM_BLOCK_SIZE = 100
+PRIOR_BATCH_SIZE = 384
+PRIOR_BLOCK_SIZE = 100
 VOCAB = ['-', # padding
          '$', # stop
          '.', # N-terminus
