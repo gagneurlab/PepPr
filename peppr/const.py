@@ -70,13 +70,15 @@ CONTRANOVO_CONFIG_YAML = os.path.join(
     PROJECT_ROOT, "ContraNovo", "ContraNovo", "config.yaml"
 )
 
-# Where training writes its intermediates: the digested proteome the prior
-# trains on, and that prior's teacher scores over the PSM corpus.
+# Where training writes its intermediates -- the digested proteome the prior
+# trains on, and that prior's teacher scores over the PSM corpus. Defaults to
+# the current directory, so running the training scripts somewhere writable is
+# enough.
 #
 # Inference needs none of this: it reads PEPPR_PRIOR_PATH and
 # PEPPR_FUSION_PATH directly.
 _work_dir = os.environ.get("PEPPR_WORK_DIR")
-WORK_DIR = os.path.abspath(os.path.expanduser(_work_dir)) if _work_dir else None
+WORK_DIR = os.path.abspath(os.path.expanduser(_work_dir or os.getcwd()))
 
 # The backbone teacher scores and fusion targets depend only on the training
 # corpus, not on the prior, so they are worth sharing between runs -- that is
@@ -85,16 +87,6 @@ FUSION_WORK_DIR = os.environ.get("PEPPR_FUSION_WORK_DIR") or _under(WORK_DIR, "f
 
 # Proteome to digest when building prior training data.
 FASTA_PATH = os.environ.get("PEPPR_FASTA")
-
-
-def require_work_dir(what: str = "this operation") -> str:
-    """Return WORK_DIR, or raise naming the variable to set."""
-    if WORK_DIR is None:
-        raise RuntimeError(
-            f"PEPPR_WORK_DIR is required for {what}; point it at a writable "
-            "directory for training intermediates."
-        )
-    return WORK_DIR
 
 
 _EXP_DIR = os.environ.get("PEPPR_EXP_DIR")

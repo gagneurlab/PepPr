@@ -55,11 +55,10 @@ applies. `--use_peppr false` gives the plain Casanovo baseline.
 
 ## Train
 
-Training writes its intermediates under `PEPPR_WORK_DIR` and reads the proteome
-from `PEPPR_FASTA`. No data archive is involved — point them wherever you like.
+Training writes its intermediates into the current directory and reads the
+proteome from `PEPPR_FASTA`. No data archive is involved.
 
 ```bash
-export PEPPR_WORK_DIR=/path/to/work
 export PEPPR_FASTA=/path/to/proteome.fasta
 
 # Prior: digest the proteome, then train.
@@ -70,9 +69,9 @@ PEPPR_PRIOR_PATH=/path/to/prior.pt python peppr/train_peptide_prior_model.py
 PEPPR_FUSION_PATH=/path/to/fusion.pth python peppr/train_fusion_head.py
 ```
 
-Everything lands under `PEPPR_WORK_DIR`. The one exception worth knowing about
-is `fusion/`, holding the backbone teacher scores and fusion targets: those
-depend only on the training corpus, not on the prior, so point
+Set `PEPPR_WORK_DIR` to write elsewhere. The one part worth relocating
+deliberately is `fusion/`, holding the backbone teacher scores and fusion
+targets: those depend only on the training corpus, not on the prior, so point
 `PEPPR_FUSION_WORK_DIR` at a shared location to avoid recomputing them for
 every prior.
 
@@ -86,7 +85,7 @@ with `PEPPR_PRIOR_PATH`.
 | `PEPPR_PRIOR_PATH`       | prior (pepLM) checkpoint                                  | required       |
 | `PEPPR_FUSION_PATH`      | fusion head                                               | required       |
 | `PEPPR_BACKBONE`         | `casanovo` or `contranovo`                                | `casanovo`     |
-| `PEPPR_WORK_DIR`         | root for training intermediates                           | training only  |
+| `PEPPR_WORK_DIR`         | root for training intermediates                           | current dir    |
 | `PEPPR_FASTA`            | proteome to digest for prior training                     | training only  |
 | `PEPPR_FUSION_WORK_DIR`  | shared fusion-corpus directory                            | `$WORK/fusion` |
 | `PEPPR_DATASETS_MODULE`  | module defining named datasets for `inference.py auto`    | `peppr.const`  |
