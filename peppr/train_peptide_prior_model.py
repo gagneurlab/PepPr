@@ -16,7 +16,7 @@ print("CUDA available:", torch.cuda.is_available())
 print("Device:", torch.cuda.current_device())
 
 const.require_data_path("pepLM training")
-os.makedirs(const.PRIOR_WORK_DIR, exist_ok=True)
+os.makedirs(const.WORK_DIR, exist_ok=True)
 os.makedirs(os.path.dirname(const.PRIOR_CHECKPOINT_PATH), exist_ok=True)
 torch.manual_seed(const.SEED)
 torch._functorch.config.donated_buffer = False
@@ -159,7 +159,7 @@ prior_config = {k: getattr(const, k) for k in dir(const) if k.startswith("PRIOR_
 wandb.init(
     project=const.WANDB_PROJECT,
     name="peppr_prior",
-    dir=const.PRIOR_WORK_DIR,
+    dir=const.WORK_DIR,
     config=prior_config
 )
 

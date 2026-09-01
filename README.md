@@ -70,11 +70,11 @@ PEPPR_PRIOR_PATH=/path/to/prior.pt python peppr/train_peptide_prior_model.py
 PEPPR_FUSION_PATH=/path/to/fusion.pth python peppr/train_fusion_head.py
 ```
 
-`PEPPR_WORK_DIR` derives three sub-roots — `prior/` (the digested proteome),
-`run/` (that prior's teacher scores for this corpus) and `fusion/` (backbone
-teacher scores and fusion targets, shared across priors). Override any of them
-individually with `PEPPR_PRIOR_WORK_DIR`, `PEPPR_RUN_WORK_DIR` or
-`PEPPR_FUSION_WORK_DIR` to reuse artifacts between runs.
+Everything lands under `PEPPR_WORK_DIR`. The one exception worth knowing about
+is `fusion/`, holding the backbone teacher scores and fusion targets: those
+depend only on the training corpus, not on the prior, so point
+`PEPPR_FUSION_WORK_DIR` at a shared location to avoid recomputing them for
+every prior.
 
 The fusion head is prior-independent: once trained, swap priors at inference
 with `PEPPR_PRIOR_PATH`.
@@ -88,9 +88,7 @@ with `PEPPR_PRIOR_PATH`.
 | `PEPPR_BACKBONE`         | `casanovo` or `contranovo`                                | `casanovo`     |
 | `PEPPR_WORK_DIR`         | root for training intermediates                           | training only  |
 | `PEPPR_FASTA`            | proteome to digest for prior training                     | training only  |
-| `PEPPR_PRIOR_WORK_DIR`   | override the digested-proteome directory                  | `$WORK/prior`  |
-| `PEPPR_RUN_WORK_DIR`     | override this run's teacher-score directory               | `$WORK/run`    |
-| `PEPPR_FUSION_WORK_DIR`  | override the shared fusion-corpus directory               | `$WORK/fusion` |
+| `PEPPR_FUSION_WORK_DIR`  | shared fusion-corpus directory                            | `$WORK/fusion` |
 | `PEPPR_DATASETS_MODULE`  | module defining named datasets for `inference.py auto`    | `peppr.const`  |
 
 Inference needs only the two checkpoint paths. Anything that genuinely requires

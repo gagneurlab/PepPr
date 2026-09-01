@@ -70,22 +70,17 @@ CONTRANOVO_CONFIG_YAML = os.path.join(
     PROJECT_ROOT, "ContraNovo", "ContraNovo", "config.yaml"
 )
 
-# Where training writes its intermediates. Point PEPPR_WORK_DIR at one
-# directory and the three sub-roots below are derived from it; override any of
-# them individually to reuse artifacts across runs.
-#
-#   prior   the digested proteome the prior is trained on
-#   run     that prior's teacher scores over this run's PSM corpus
-#   fusion  the backbone teacher scores and fusion targets, which are shared
-#           across priors because they depend only on the corpus
+# Where training writes its intermediates: the digested proteome the prior
+# trains on, and that prior's teacher scores over the PSM corpus.
 #
 # Inference needs none of this: it reads PEPPR_PRIOR_PATH and
 # PEPPR_FUSION_PATH directly.
 _work_dir = os.environ.get("PEPPR_WORK_DIR")
 WORK_DIR = os.path.abspath(os.path.expanduser(_work_dir)) if _work_dir else None
 
-PRIOR_WORK_DIR = os.environ.get("PEPPR_PRIOR_WORK_DIR") or _under(WORK_DIR, "prior")
-RUN_WORK_DIR = os.environ.get("PEPPR_RUN_WORK_DIR") or _under(WORK_DIR, "run")
+# The backbone teacher scores and fusion targets depend only on the training
+# corpus, not on the prior, so they are worth sharing between runs -- that is
+# the one thing PEPPR_WORK_DIR cannot derive for you.
 FUSION_WORK_DIR = os.environ.get("PEPPR_FUSION_WORK_DIR") or _under(WORK_DIR, "fusion")
 
 # Proteome to digest when building prior training data.
@@ -97,8 +92,7 @@ def require_work_dir(what: str = "this operation") -> str:
     if WORK_DIR is None:
         raise RuntimeError(
             f"PEPPR_WORK_DIR is required for {what}; point it at a writable "
-            "directory for training intermediates (or set PEPPR_PRIOR_WORK_DIR "
-            "/ PEPPR_RUN_WORK_DIR / PEPPR_FUSION_WORK_DIR individually)."
+            "directory for training intermediates."
         )
     return WORK_DIR
 
@@ -150,14 +144,14 @@ CONTRANOVO_FUSION_MODEL_PATH = os.environ.get("PEPPR_CONTRANOVO_FUSION_PATH")
 # PEPPR_PRIOR_DATA_SUFFIX lets experiments write versioned training data (e.g.
 # "_sw_v2") without overwriting the baseline files.
 _prior_data_suffix = os.environ.get("PEPPR_PRIOR_DATA_SUFFIX", "")
-PRIOR_SEQ_X_PATH = _under(PRIOR_WORK_DIR, f'plm_seq_x{_prior_data_suffix}.pt')
-PRIOR_SEQ_Y_PATH = _under(PRIOR_WORK_DIR, f'plm_seq_y{_prior_data_suffix}.pt')
-PRIOR_SEQ_COUNTS_PATH = _under(PRIOR_WORK_DIR, f'plm_seq_counts{_prior_data_suffix}.pkl')
-PRIOR_SEQ_TEACHER_SCORES_PATH = _under(PRIOR_WORK_DIR, 'plm_seq_teacher_scores.pt')
-PRIOR_PSM_X_TRAIN_PATH = _exp(_under(RUN_WORK_DIR, 'plm_psm_x_train.pt'))
-PRIOR_PSM_X_TEST_PATH = _exp(_under(RUN_WORK_DIR, 'plm_psm_x_test.pt'))
-PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH = _exp(_under(RUN_WORK_DIR, 'plm_psm_teacher_scores_train.pt'))
-PRIOR_PSM_TEACHER_SCORES_TEST_PATH = _exp(_under(RUN_WORK_DIR, 'plm_psm_teacher_scores_test.pt'))
+PRIOR_SEQ_X_PATH = _under(WORK_DIR, f'plm_seq_x{_prior_data_suffix}.pt')
+PRIOR_SEQ_Y_PATH = _under(WORK_DIR, f'plm_seq_y{_prior_data_suffix}.pt')
+PRIOR_SEQ_COUNTS_PATH = _under(WORK_DIR, f'plm_seq_counts{_prior_data_suffix}.pkl')
+PRIOR_SEQ_TEACHER_SCORES_PATH = _under(WORK_DIR, 'plm_seq_teacher_scores.pt')
+PRIOR_PSM_X_TRAIN_PATH = _exp(_under(WORK_DIR, 'plm_psm_x_train.pt'))
+PRIOR_PSM_X_TEST_PATH = _exp(_under(WORK_DIR, 'plm_psm_x_test.pt'))
+PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH = _exp(_under(WORK_DIR, 'plm_psm_teacher_scores_train.pt'))
+PRIOR_PSM_TEACHER_SCORES_TEST_PATH = _exp(_under(WORK_DIR, 'plm_psm_teacher_scores_test.pt'))
 PRIOR_CHECKPOINT_PATH = os.environ.get("PEPPR_PRIOR_PATH")
 
 FUSION_MODEL_PATH = os.environ.get("PEPPR_FUSION_PATH")
