@@ -3,10 +3,6 @@
 Resolving spectral ambiguity in *de novo* peptide sequencing using peptide
 priors.
 
-A peptide language model (pepLM) trained on a reference proteome is fused with
-a frozen *de novo* sequencing backbone through a small fusion head, which
-replaces the backbone's output layer. Casanovo is the worked example.
-
 Code for the paper's benchmarks and figures lives in
 [gagneurlab/PepPr_paper](https://github.com/gagneurlab/PepPr_paper).
 
@@ -36,11 +32,15 @@ A ContraNovo integration is included too: `cd ContraNovo && git apply
 
 ## Run
 
-Point at your checkpoints and run the patched Casanovo with `--use_peppr`:
+Download and extract the model archive from Zenodo (DOI filled in on
+publication), then point at the checkpoints inside it:
 
 ```bash
-PEPPR_PRIOR_PATH=/path/to/plm_ckpt.pt \
-PEPPR_FUSION_PATH=/path/to/fusion_model.pth \
+tar xzf peppr_models.tar.gz
+export PEPPR_MODELS="$PWD/peppr_models"
+
+PEPPR_PRIOR_PATH="$PEPPR_MODELS/models/human_iso/plm_ckpt.pt" \
+PEPPR_FUSION_PATH="$PEPPR_MODELS/models/human_iso_asymbnln/fusion_model.pth" \
 casanovo sequence \
     -m https://github.com/Noble-Lab/casanovo/releases/download/v5.0.0/casanovo_v5_0_0.ckpt \
     -c casanovo/casanovo/config.yaml \
@@ -49,9 +49,9 @@ casanovo sequence \
     -f spectra.mgf
 ```
 
-`--use_peppr false` gives the plain Casanovo baseline.
-
-Inference needs only the checkpoint paths — no data archive.
+The archive holds one prior per species under `models/<species>/plm_ckpt.pt`;
+swap `PEPPR_PRIOR_PATH` to use a different one, and the same fusion head still
+applies. `--use_peppr false` gives the plain Casanovo baseline.
 
 ## Train
 
