@@ -341,9 +341,7 @@ class FusionModel(nn.Module):
     Asymmetric per-stream norm: BatchNorm1d on the casanovo stream (fixed
     upstream model, so running stats stay valid and per-amino-acid calibration
     is preserved) and LayerNorm on the pepLM stream (swappable upstream model,
-    so we avoid coupling running stats to a specific pepLM). For the null
-    model (no pepLM stream), ``casanovo_vocab_size == input_size`` and only
-    the casanovo block is normed.
+    so we avoid coupling running stats to a specific pepLM).
     """
 
     def __init__(self, input_size, hidden_size, output_size, casanovo_vocab_size):
@@ -408,13 +406,11 @@ def load_prior_model():
     model = _maybe_compile(model)
     return model
 
-def load_fusion_model(null_model, vocab_size, path=None, output_size=None):
+def load_fusion_model(vocab_size, path=None, output_size=None):
     """Load a FusionModel checkpoint.
 
     Parameters
     ----------
-    null_model : bool
-        Load the null (Casanovo-only) baseline instead of the full fusion.
     vocab_size : int
         Casanovo vocabulary size (input block size for the Casanovo stream).
     path : str, optional
@@ -423,26 +419,21 @@ def load_fusion_model(null_model, vocab_size, path=None, output_size=None):
         Output dimensionality of the FusionModel.  Defaults to ``vocab_size``.
     """
     import os
-    if path is None:
-        fusion_path = const.NULL_MODEL_PATH if null_model else const.FUSION_MODEL_PATH
-    else:
-        fusion_path = path
+    fusion_path = const.FUSION_MODEL_PATH if path is None else path
     if fusion_path is None:
         raise FileNotFoundError(
             "No fusion model weights configured. Set PEPPR_FUSION_PATH "
-            "(or PEPPR_NULL_PATH), pass ``path=``, or set PEPPR_DATA_PATH "
+            "pass ``path=``, or set PEPPR_DATA_PATH "
             "to the data archive root to use the weights bundled there."
         )
     if not os.path.exists(fusion_path):
         raise FileNotFoundError(
             f"Fusion model weights not found at {fusion_path!r}. "
-            "Set PEPPR_FUSION_PATH (or PEPPR_NULL_PATH) accordingly."
+            "Set PEPPR_FUSION_PATH accordingly."
         )
     if output_size is None:
         output_size = vocab_size
-    input_size = vocab_size
-    if not null_model:
-        input_size += len(const.VOCAB)
+    input_size = vocab_size + len(const.VOCAB)
     fusion_model = FusionModel(
         input_size=input_size, hidden_size=128, output_size=output_size,
         casanovo_vocab_size=vocab_size,

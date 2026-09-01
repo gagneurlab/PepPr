@@ -55,33 +55,44 @@ Inference needs only the checkpoint paths — no data archive.
 
 ## Train
 
-Set `PEPPR_DATA_PATH` to a data archive holding the FASTAs and training corpora
-(required for training and data preparation only).
+Training writes its intermediates under `PEPPR_WORK_DIR` and reads the proteome
+from `PEPPR_FASTA`. No data archive is involved — point them wherever you like.
 
 ```bash
-# pepLM: digest the proteome, then train.
-PEPPR_SPECIES=human python peppr/prepare_data.py
-PEPPR_SPECIES=human python peppr/train_peptide_prior_model.py
+export PEPPR_WORK_DIR=/path/to/work
+export PEPPR_FASTA=/path/to/proteome.fasta
 
-# Fusion head: teacher scores from the frozen backbone + the pepLM.
-PEPPR_BACKBONE=casanovo python peppr/train_fusion_head.py
+# Prior: digest the proteome, then train.
+python peppr/prepare_data.py
+PEPPR_PRIOR_PATH=/path/to/prior.pt python peppr/train_peptide_prior_model.py
+
+# Fusion head: backbone teacher scores + prior teacher scores over one corpus.
+PEPPR_FUSION_PATH=/path/to/fusion.pth python peppr/train_fusion_head.py
 ```
+
+`PEPPR_WORK_DIR` derives three sub-roots — `prior/` (the digested proteome),
+`run/` (that prior's teacher scores for this corpus) and `fusion/` (backbone
+teacher scores and fusion targets, shared across priors). Override any of them
+individually with `PEPPR_PRIOR_WORK_DIR`, `PEPPR_RUN_WORK_DIR` or
+`PEPPR_FUSION_WORK_DIR` to reuse artifacts between runs.
 
 The fusion head is prior-independent: once trained, swap priors at inference
 with `PEPPR_PRIOR_PATH`.
 
 ## Environment variables
 
-| Variable                 | Meaning                                       | Default                            |
-| ------------------------ | --------------------------------------------- | ---------------------------------- |
-| `PEPPR_PRIOR_PATH`     | pepLM checkpoint                              | under `$PEPPR_DATA_PATH/models/`    |
-| `PEPPR_FUSION_PATH` | fusion head                                   | under `$PEPPR_DATA_PATH/models/`    |
-| `PEPPR_NULL_PATH`   | null (backbone-only) head                     | under `$PEPPR_DATA_PATH/models/`    |
-| `PEPPR_DATA_PATH`         | data archive root                             | required for training / data prep  |
-| `PEPPR_SPECIES`           | species being evaluated                       | `human`                            |
-| `PEPPR_PRIOR_SPECIES`       | which species' pepLM to use                   | `human_iso` for human, else target |
-| `PEPPR_BACKBONE`   | `casanovo` or `contranovo`                    | `casanovo`                         |
-| `PEPPR_DATASETS_MODULE`   | module defining datasets for `inference.py`   | `peppr.const`                      |
+| Variable                 | Meaning                                                   | Default        |
+| ------------------------ | --------------------------------------------------------- | -------------- |
+| `PEPPR_PRIOR_PATH`       | prior (pepLM) checkpoint                                  | required       |
+| `PEPPR_FUSION_PATH`      | fusion head                                               | required       |
+| `PEPPR_BACKBONE`         | `casanovo` or `contranovo`                                | `casanovo`     |
+| `PEPPR_WORK_DIR`         | root for training intermediates                           | training only  |
+| `PEPPR_FASTA`            | proteome to digest for prior training                     | training only  |
+| `PEPPR_PRIOR_WORK_DIR`   | override the digested-proteome directory                  | `$WORK/prior`  |
+| `PEPPR_RUN_WORK_DIR`     | override this run's teacher-score directory               | `$WORK/run`    |
+| `PEPPR_FUSION_WORK_DIR`  | override the shared fusion-corpus directory               | `$WORK/fusion` |
+| `PEPPR_DATASETS_MODULE`  | module defining named datasets for `inference.py auto`    | `peppr.const`  |
 
-With `PEPPR_DATA_PATH` unset, archive-derived paths resolve to `None` and any
+Inference needs only the two checkpoint paths. Anything that genuinely requires
+a training directory fails with a message naming the variable to set.
 operation that needs them fails with a message naming the variable to set.

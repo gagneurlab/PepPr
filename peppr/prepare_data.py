@@ -15,69 +15,7 @@ from collections import defaultdict
 from tqdm import tqdm
 import pygtrie
 import pickle
-from peppr.proforma import massivekb_to_proforma
 
-try:
-    from pyteomics.proforma import parse as _proforma_parse
-    from pyteomics.proforma import ProFormaError as _ProFormaError
-except ImportError:
-    _proforma_parse = None
-    _ProFormaError = None
-
-
-
-_MASS_TO_PROFORMA = {
-    "C[+57.021]": "C[Carbamidomethyl]",
-    "M[+15.995]": "M[Oxidation]",
-    "N[+0.984]": "N[Deamidated]",
-    "Q[+0.984]": "Q[Deamidated]",
-    "[+42.011]-": "[Acetyl]-",
-    "K[+229.163]": "K[TMT6plex]",
-    "[+229.163]-": "[TMT6plex]-",
-    "K[+304.207]": "K[TMTpro]",
-    "[+304.207]-": "[TMTpro]-",
-}
-
-# Casanovo v5 default vocabulary + TMT6plex. Used by prepare_luad_casanovo_ft
-# to drop PSMs whose ProForma SEQ contains any modification outside this set
-# (e.g. Phospho, HexNAc, GlyGly, Methyl, Pro-hydroxylation, ...).
-_CASANOVO_TMT_ALLOWED_MODS = frozenset({
-    "Carbamidomethyl",
-    "Oxidation",
-    "Deamidated",
-    "Acetyl",
-    "Carbamyl",
-    "Ammonia-loss",
-    "+25.980265",
-    "TMT6plex",
-    # TMTpro16plex (UNIMOD:2016) — PXD033643 fine-tune.
-    "TMTpro",
-})
-
-def _normalize_mass_shifts(seq: str) -> str:
-    for mass, name in _MASS_TO_PROFORMA.items():
-        seq = seq.replace(mass, name)
-    return seq
-
-def _convert_seq_to_proforma(seq_value: str, validate: bool = True) -> str:
-    """
-    Convert SEQ= value to ProForma. If validate=True and the result fails to parse
-    (e.g. ProFormaError 'Missing Closing Tag'), fall back to plain amino acid sequence.
-    """
-    converted = massivekb_to_proforma(seq_value)
-    converted = _normalize_mass_shifts(converted)
-    if validate:
-        try:
-            _proforma_parse(converted)
-        except _ProFormaError:
-            print(f"Failed to parse {seq_value} as ProForma, falling back to plain sequence")
-            plain = re.sub(r"\[.*?\]", "", converted)
-            plain = re.sub(r"^[+-]?[\d.]+-?", "", plain)  # n-term mass mods
-            plain = re.sub(r"/\d+$", "", plain)  # charge suffix
-            plain = "".join(c for c in plain if c in "ACDEFGHIKLMNPQRSTVWY")
-            if plain:
-                converted = plain
-    return converted
 
 itos = { i:ch for i,ch in enumerate(const.VOCAB) }
 # Start token isn't part of the vocabulary
@@ -208,8 +146,14 @@ def _find_cdr3_range(seq: str) -> tuple[int, int] | None:
 
 
 def generate_plm_training_data():
-    const.require_data_path("pepLM training data")
-    os.makedirs(const.RUN_PATH, exist_ok=True)
+    if const.FASTA_PATH is None:
+        raise RuntimeError(
+            "PEPPR_FASTA is required to build prior training data; point it at "
+            "the proteome FASTA to digest."
+        )
+    if const.PRIOR_WORK_DIR is None:
+        const.require_work_dir("prior training data")
+    os.makedirs(const.PRIOR_WORK_DIR, exist_ok=True)
     # PEPPR_PRIOR_PROTEASES supports only tryptic digestion or non-specific
     # sliding-window generation.
     digestion_mode = os.environ.get("PEPPR_PRIOR_PROTEASES", "trypsin").strip().lower()
@@ -381,256 +325,11 @@ def generate_plm_training_data():
         pickle.dump(trie, f)
     print("Saved prior training data to", const.PRIOR_SEQ_X_PATH, const.PRIOR_SEQ_Y_PATH)
     
-def split_mgf_file(
-    input_file: str,
-    train_file: Optional[TextIO] = None,
-    test_file: Optional[TextIO] = None,
-    assignments: Optional[dict] = None,
-    train_ratio: float = 0.8,
-    skip: int = 0,
-    output_file: Optional[str] = None,
-    validate_proforma: bool = False,
-) -> Tuple[int, int]:
-    """
-    Process an MGF file: convert SEQ= to ProForma (MassIVE-KB -> depthcharge format).
-
-    Two modes:
-    - With output_file: write all spectra to a single file (no train/test split).
-    - With train_file and test_file: split into train/test by train_ratio.
-
-    When skip > 0, only every (skip+1)-th spectrum is written.
-    When validate_proforma=True, SEQ= lines that fail to parse (e.g. "Missing Closing Tag")
-    are fixed by stripping modification annotations to plain amino acids.
-    Returns (total_spectra, written_spectra).
-    """
-    current_spectrum = []
-    in_spectrum = False
-    force_train = None
-    spectrum_index = 0
-    written_count = 0
-    no_split = output_file is not None
-    assignments = assignments or {}
-    out_handle = None
-    if no_split:
-        out_handle = open(output_file, 'w')
-
-    try:
-        with open(input_file, 'r') as infile, tqdm() as pbar:
-            for line in infile:
-                line = line.rstrip('\n')
-                if line == 'BEGIN IONS':
-                    in_spectrum = True
-                    current_spectrum = [line]
-                    seq = None
-                elif line == 'END IONS':
-                    current_spectrum.append(line)
-                    keep = skip == 0 or spectrum_index % (skip + 1) == 0
-                    if keep:
-                        lines = '\n'.join(current_spectrum) + '\n\n'
-                        if no_split:
-                            out_handle.write(lines)
-                            written_count += 1
-                        elif force_train is not None:
-                            if force_train:
-                                train_file.write(lines)
-                            else:
-                                test_file.write(lines)
-                            if seq is not None:
-                                assignments[seq] = force_train
-                            written_count += 1
-                        elif random.random() < train_ratio:
-                            train_file.write(lines)
-                            if seq is not None:
-                                assignments[seq] = True
-                            written_count += 1
-                        else:
-                            test_file.write(lines)
-                            if seq is not None:
-                                assignments[seq] = False
-                            written_count += 1
-                    spectrum_index += 1
-                    in_spectrum = False
-                    force_train = None
-                    current_spectrum = None
-                    pbar.update(1)
-                elif in_spectrum:
-                    if line.startswith('SEQ='):
-                        seq_value = line.split('=', 1)[1]
-                        line = 'SEQ=' + _convert_seq_to_proforma(seq_value, validate=validate_proforma)
-                        seq = re.sub(r'\[.*?\]', '', line.split('=', 1)[1])
-                        if not no_split and seq in assignments:
-                            force_train = assignments[seq]
-                    current_spectrum.append(line)
-                else:
-                    pass
-    finally:
-        if out_handle is not None:
-            out_handle.close()
-
-    return (spectrum_index, written_count)
-
-
-def convert_mgf_to_proforma(
-    input_glob: str,
-    output_dir: str,
-    skip: int = 0,
-    validate_proforma: bool = True,
-) -> None:
-    """
-    Convert MGF file(s) to ProForma (MassIVE-KB -> depthcharge format) without splitting.
-    Writes each input file to output_dir with the same basename.
-
-    When validate_proforma=True (default), SEQ= lines that fail to parse
-    (e.g. ProFormaError "Missing Closing Tag") are fixed by stripping
-    modification annotations to plain amino acids.
-    """
-    os.makedirs(output_dir, exist_ok=True)
-    for file in glob.glob(input_glob):
-        output_path = os.path.join(output_dir, os.path.basename(file))
-        print(f"Converting {file} -> {output_path}...")
-        total, written = split_mgf_file(
-            file,
-            output_file=output_path,
-            skip=skip,
-            validate_proforma=validate_proforma,
-        )
-        print(f"  Wrote {written} / {total} spectra")
 
 
 _BRACKET_TOKEN_RE = re.compile(r"\[([^\[\]]+)\]")
 _BRACKET_SPAN_RE = re.compile(r"\[[^\[\]]+\]-?")
 _STANDARD_AAS = frozenset("ACDEFGHIKLMNPQRSTVWY")
-
-
-def _has_nonstandard_aa(proforma: str) -> bool:
-    backbone = _BRACKET_SPAN_RE.sub("", proforma)
-    return any(c not in _STANDARD_AAS for c in backbone)
-
-
-def _prepare_casanovo_ft(
-    mgf_in: str,
-    out_dir: str,
-    output_prefix: str,
-    description: str,
-    ratios: Tuple[float, float, float],
-) -> dict:
-    """Normalize an MGF to Casanovo ProForma and split by peptide backbone."""
-    if abs(sum(ratios) - 1.0) > 1e-6:
-        raise ValueError(f"ratios must sum to 1.0, got {sum(ratios)}")
-
-    train_ratio, val_ratio, _ = ratios
-    train_cut = round(train_ratio * 1000)
-    val_cut = round((train_ratio + val_ratio) * 1000)
-    split_names = ("train", "val", "test")
-    os.makedirs(out_dir, exist_ok=True)
-    out_paths = {
-        split: os.path.join(out_dir, f"{output_prefix}_{split}.mgf")
-        for split in split_names
-    }
-    counts = {
-        "total": 0, "train": 0, "val": 0, "test": 0,
-        "dropped_vocab": 0, "dropped_no_seq": 0,
-        "dropped_nonstandard_aa": 0,
-    }
-    backbones = {split: set() for split in split_names}
-    dropped_tokens: dict[str, int] = defaultdict(int)
-
-    def parse_sequence(line: str) -> tuple[str, str, Optional[str]]:
-        proforma = _normalize_mass_shifts(line.rstrip("\n").split("=", 1)[1])
-        bad_token = next(
-            (token for token in _BRACKET_TOKEN_RE.findall(proforma)
-             if token not in _CASANOVO_TMT_ALLOWED_MODS),
-            None,
-        )
-        backbone = _BRACKET_SPAN_RE.sub("", proforma)
-        if bad_token is None and _has_nonstandard_aa(proforma):
-            bad_token = "<nonstandard_aa>"
-        return proforma, backbone, bad_token
-
-    def choose_split(backbone: str) -> str:
-        bucket = int(hashlib.md5(backbone.encode("utf-8")).hexdigest()[:8], 16) % 1000
-        if bucket < train_cut:
-            return "train"
-        return "val" if bucket < val_cut else "test"
-
-    file_size = os.path.getsize(mgf_in)
-    with open(mgf_in) as source, \
-         open(out_paths["train"], "w") as train_out, \
-         open(out_paths["val"], "w") as val_out, \
-         open(out_paths["test"], "w") as test_out, \
-         tqdm(total=file_size, unit="B", unit_scale=True, desc=description) as pbar:
-        outputs = {"train": train_out, "val": val_out, "test": test_out}
-        spectrum: list[str] = []
-        backbone: Optional[str] = None
-        rejection: Optional[str] = None
-
-        for line in source:
-            pbar.update(len(line))
-            if line.startswith("BEGIN IONS"):
-                spectrum = [line]
-                backbone = rejection = None
-            elif not spectrum:
-                continue
-            elif line.startswith("SEQ="):
-                proforma, backbone, rejection = parse_sequence(line)
-                if rejection is not None:
-                    dropped_tokens[rejection] += 1
-                spectrum.append(f"SEQ={proforma}\n")
-            elif line.startswith("END IONS"):
-                spectrum.append(line)
-                counts["total"] += 1
-                if backbone is None:
-                    counts["dropped_no_seq"] += 1
-                elif rejection == "<nonstandard_aa>":
-                    counts["dropped_nonstandard_aa"] += 1
-                elif rejection is not None:
-                    counts["dropped_vocab"] += 1
-                else:
-                    split = choose_split(backbone)
-                    outputs[split].writelines(spectrum)
-                    outputs[split].write("\n")
-                    counts[split] += 1
-                    backbones[split].add(backbone)
-                spectrum = []
-            else:
-                spectrum.append(line)
-
-    stats = {
-        "input_mgf": mgf_in,
-        "ratios": list(ratios),
-        "spectra": counts,
-        "unique_backbones": {split: len(values) for split, values in backbones.items()},
-        "overlap_check": {
-            "train_val": len(backbones["train"] & backbones["val"]),
-            "train_test": len(backbones["train"] & backbones["test"]),
-            "val_test": len(backbones["val"] & backbones["test"]),
-        },
-        "dropped_tokens": dict(sorted(dropped_tokens.items(), key=lambda item: -item[1])),
-    }
-    with open(os.path.join(out_dir, "split_stats.json"), "w") as stats_file:
-        json.dump(stats, stats_file, indent=2)
-    print(json.dumps(stats, indent=2))
-    return stats
-
-
-def prepare_luad_casanovo_ft(
-    mgf_in: str,
-    out_dir: str,
-    ratios: Tuple[float, float, float] = (0.8, 0.1, 0.1),
-) -> dict:
-    return _prepare_casanovo_ft(
-        mgf_in, out_dir, "luad", "LUAD MGF -> ProForma + split", ratios
-    )
-
-
-def prepare_pxd033643_casanovo_ft(
-    mgf_in: str,
-    out_dir: str,
-    ratios: Tuple[float, float, float] = (0.8, 0.1, 0.1),
-) -> dict:
-    return _prepare_casanovo_ft(
-        mgf_in, out_dir, "pxd033643", "PXD033643 MGF -> ProForma + split", ratios
-    )
 
 
 def translate_for_prior(input, output_path, translation_table=None):
@@ -794,23 +493,17 @@ def generate_contranovo_fusion_files():
         print(f"prior X ({tag}) saved to {out_x_path}")
 
 
-
-
 def prepare_training_data() -> None:
     """Create prior and fusion training tensors when they do not already exist."""
     print(
-        f"=== Training data: species={const.ACTIVE_SPECIES}, "
-        f"prior species={const.PRIOR_SPECIES}, RUN_PATH={const.RUN_PATH} ==="
+        f"=== Training data: prior={const.PRIOR_WORK_DIR}, "
+        f"run={const.RUN_WORK_DIR}, fusion={const.FUSION_WORK_DIR} ==="
     )
-    prior_data_exists = os.path.exists(const.PRIOR_SEQ_X_PATH) and os.path.exists(const.PRIOR_SEQ_Y_PATH)
-    if const.PRIOR_SPECIES != const.ACTIVE_SPECIES:
-        if not prior_data_exists:
-            raise RuntimeError(
-                f"Cross-species prior data not found at {const.PRIOR_RUN_PATH}; "
-                f"train {const.PRIOR_SPECIES!r} first."
-            )
-        print(f"Using cross-species prior data from {const.PRIOR_RUN_PATH}.")
-    elif prior_data_exists:
+    prior_data_exists = (
+        os.path.exists(const.PRIOR_SEQ_X_PATH)
+        and os.path.exists(const.PRIOR_SEQ_Y_PATH)
+    )
+    if prior_data_exists:
         print("prior training data already exists, skipping.")
     else:
         print(f"Generating prior training data from {const.FASTA_PATH}...")
@@ -824,27 +517,18 @@ def prepare_training_data() -> None:
 
 
 def _build_cli() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="prepare_data.py")
-    subparsers = parser.add_subparsers(dest="command")
-    convert = subparsers.add_parser(
-        "convert_proforma",
-        help="convert MGF SEQ mass-shift annotations to valid ProForma",
+    return argparse.ArgumentParser(
+        prog="prepare_data.py",
+        description=(
+            "Build the prior and fusion training tensors. Input MGFs must "
+            "already carry ProForma SEQ= annotations."
+        ),
     )
-    convert.add_argument("input_glob")
-    convert.add_argument("output_dir")
-    return parser
 
 
 def main(argv: Optional[list[str]] = None) -> None:
-    args = _build_cli().parse_args(argv)
-    if args.command == "convert_proforma":
-        convert_mgf_to_proforma(
-            args.input_glob,
-            args.output_dir,
-            validate_proforma=True,
-        )
-    else:
-        prepare_training_data()
+    _build_cli().parse_args(argv)
+    prepare_training_data()
 
 
 if __name__ == "__main__":

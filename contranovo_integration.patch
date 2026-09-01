@@ -40,7 +40,7 @@ index 5d26640..2981e88 100644
          logger.info("Train the ContraNovo model.")
          model_runner.train(peak_path, peak_path_val, peak_path_test, model, config)
 diff --git a/ContraNovo/denovo/model.py b/ContraNovo/denovo/model.py
-index 4610f6a..01c6bc2 100644
+index 4610f6a..0c2c71b 100644
 --- a/ContraNovo/denovo/model.py
 +++ b/ContraNovo/denovo/model.py
 @@ -18,9 +18,19 @@ import torch.nn.functional as F
@@ -71,7 +71,7 @@ index 4610f6a..01c6bc2 100644
          **kwargs: Dict,
      ):
          super().__init__()
-@@ -186,6 +197,24 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
+@@ -186,6 +197,23 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
          # Output writer during predicting.
          self.out_writer = out_writer
  
@@ -83,7 +83,6 @@ index 4610f6a..01c6bc2 100644
 +            # ContraNovo-specific fusion model — casanovo's would load by
 +            # coincidence (both are 29-d) but with mismatched vocab semantics.
 +            FUSION_MODEL = load_fusion_model(
-+                null_model=False,
 +                vocab_size=self.decoder.vocab_size + 1,
 +                path=dnps_const.CONTRANOVO_FUSION_MODEL_PATH,
 +            )
@@ -96,7 +95,7 @@ index 4610f6a..01c6bc2 100644
      def forward(
              self, spectra: torch.Tensor,
              precursors: torch.Tensor) -> Tuple[List[List[str]], torch.Tensor]:
-@@ -312,12 +341,37 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
+@@ -312,12 +340,37 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
              if decoded.all():
                  break
              # Update the scores.
