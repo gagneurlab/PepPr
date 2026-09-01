@@ -105,20 +105,16 @@ def main(argv: list[str] | None = None) -> int:
         X_fusion = torch.cat([scores_casanovo_test, scores_prior_test], dim=2)
 
         vocab_size = scores_casanovo_test.shape[2]
-        fusion_model = load_fusion_model(null_model=False, vocab_size=vocab_size)
-        null_model = load_fusion_model(null_model=True, vocab_size=vocab_size)
+        fusion_model = load_fusion_model(vocab_size=vocab_size)
         batch_size = 4096
         scores_fusion = torch.zeros(size=(X_fusion.shape[0], const.PRIOR_BLOCK_SIZE, vocab_size), device=const.DEVICE)
-        scores_null = torch.zeros_like(scores_fusion)
         with torch.no_grad():
             for i in range(0, len(X_fusion), batch_size):
                 end = min(i+batch_size, len(X_fusion))
                 scores_fusion[i:end] = fusion_model(X_fusion[i:end].view(-1, X_fusion.size(2))).view(-1, const.PRIOR_BLOCK_SIZE, vocab_size)
-                scores_null[i:end] = null_model(scores_casanovo_test[i:end].view(-1, scores_casanovo_test.size(2))).view(-1, const.PRIOR_BLOCK_SIZE, vocab_size)
                 print(f"Processed {i} of {len(X_fusion)}")
 
         torch.save(scores_fusion, const.FUSION_SCORES_TEACHER_TEST_PATH)
-        torch.save(scores_null, const.NULL_SCORES_TEACHER_TEST_PATH)
     elif model_type == 'contranovo':
         print(f"=== ContraNovo +/- pepLM on species: {const.ACTIVE_SPECIES} ===")
         contranovo_root = os.path.join(const.PROJECT_ROOT, "ContraNovo")

@@ -3,10 +3,10 @@
 Loads cas-backbone teacher scores + pepLM teacher scores and trains a fusion
 head plus a null (cas-only) baseline.  Backbone is selected via the
 ``PEPPR_BACKBONE`` env var: ``casanovo`` (default) saves to
-``const.FUSION_MODEL_PATH`` / ``const.NULL_MODEL_PATH``; ``contranovo`` saves to
-``const.CONTRANOVO_FUSION_MODEL_PATH`` / ``const.CONTRANOVO_NULL_MODEL_PATH``
+``const.FUSION_MODEL_PATH``; ``contranovo`` saves to
+``const.CONTRANOVO_FUSION_MODEL_PATH``
 (both require ``PEPPR_CONTRANOVO_FUSION_PATH`` /
-``PEPPR_CONTRANOVO_NULL_PATH`` to be set to an experiment-specific path,
+``PEPPR_CONTRANOVO_FUSION_PATH`` to be set to an experiment-specific path,
 to avoid overwriting the shared Apr-27 checkpoints).
 Backbone selection only swaps file paths; the fusion head architecture
 (asymmetric BN-cas + LN-plm) and loss are identical across backbones.
@@ -129,22 +129,17 @@ def load_model(input_size, output_size, casanovo_vocab_size=None):
     return model, optimizer, scheduler
 
 
-def get_val_loss(fusion_model, null_model, fusion_criterion, null_criterion, val_loader, casanovo_vocab_size):
+def get_val_loss(fusion_model, fusion_criterion, val_loader):
     fusion_model.eval()
-    null_model.eval()
     total_fusion = 0.0
-    total_null = 0.0
     n_batches = 0
     with torch.no_grad():
         for batch_X, batch_Y in val_loader:
             batch_X = batch_X.to(const.DEVICE)
-            batch_X_null = batch_X[:, :casanovo_vocab_size]
             batch_Y = batch_Y.to(const.DEVICE).long()
-            batch_Y_null = batch_Y
             total_fusion += fusion_criterion(fusion_model(batch_X), batch_Y).item()
-            total_null += null_criterion(null_model(batch_X_null), batch_Y_null).item()
             n_batches += 1
-    return total_fusion / n_batches, total_null / n_batches
+    return total_fusion / n_batches
 
 
 def main():
@@ -160,7 +155,6 @@ def main():
         prior_train_path = const.PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH
         prior_test_path  = const.PRIOR_PSM_TEACHER_SCORES_TEST_PATH
         fusion_out_path = const.FUSION_MODEL_PATH
-        null_out_path   = const.NULL_MODEL_PATH
     else:  # contranovo
         y_train_path  = const.CONTRANOVO_FUSION_Y_TRAIN_PATH
         y_test_path   = const.CONTRANOVO_FUSION_Y_TEST_PATH
@@ -169,24 +163,18 @@ def main():
         prior_train_path = const.CONTRANOVO_PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH
         prior_test_path  = const.CONTRANOVO_PRIOR_PSM_TEACHER_SCORES_TEST_PATH
         fusion_out_path = const.CONTRANOVO_FUSION_MODEL_PATH
-        null_out_path   = const.CONTRANOVO_NULL_MODEL_PATH
-        # Guard against clobbering the shared Apr-27 ContraNovo checkpoints:
-        # require an experiment-specific override for new training runs.
+        # Guard against clobbering the shared ContraNovo checkpoint: require an
+        # experiment-specific override for new training runs.
         _shared = os.path.join(
             const.SHARED_MODEL_RUN_PATH, "contranovo_fusion_model.pth"
         )
-        _shared_null = os.path.join(
-            const.SHARED_MODEL_RUN_PATH, "contranovo_null_model.pth"
-        )
-        if fusion_out_path == _shared or null_out_path == _shared_null:
+        if fusion_out_path == _shared:
             raise RuntimeError(
-                "Refusing to overwrite the shared ContraNovo checkpoints. Set "
-                "PEPPR_CONTRANOVO_FUSION_PATH and PEPPR_CONTRANOVO_NULL_PATH "
-                "to an experiment-specific path."
+                "Refusing to overwrite the shared ContraNovo checkpoint. Set "
+                "PEPPR_CONTRANOVO_FUSION_PATH to an experiment-specific path."
             )
     print(f"[backbone] {_BACKBONE}  fusion_out={fusion_out_path}")
     os.makedirs(os.path.dirname(fusion_out_path), exist_ok=True)
-    os.makedirs(os.path.dirname(null_out_path), exist_ok=True)
 
     train_loader, casanovo_vocab_size, prior_vocab_size = load_data(
         y_train_path,
@@ -206,12 +194,9 @@ def main():
         casanovo_vocab_size + prior_vocab_size, fusion_output_size,
         casanovo_vocab_size=casanovo_vocab_size,
     )
-    null_model, null_opt, null_sched = load_model(casanovo_vocab_size, casanovo_vocab_size)
     print(f"Fusion params: {sum(p.numel() for p in fusion_model.parameters()):,}")
-    print(f"Null params:   {sum(p.numel() for p in null_model.parameters()):,}")
 
     fusion_criterion = nn.CrossEntropyLoss()
-    null_criterion = nn.CrossEntropyLoss()
 
     prior_top2_swap_frac = config['prior_top2_swap_frac']
     if prior_top2_swap_frac > 0.0:
@@ -228,27 +213,19 @@ def main():
             config=config,
         )
 
-    val_loss_fusion, val_loss_null = get_val_loss(
-        fusion_model, null_model, fusion_criterion, null_criterion, val_loader, casanovo_vocab_size,
-    )
-    print(f"[epoch 0] val/loss_fusion={val_loss_fusion:.4f}  val/loss_null={val_loss_null:.4f}")
+    val_loss_fusion = get_val_loss(fusion_model, fusion_criterion, val_loader)
+    print(f"[epoch 0] val/loss_fusion={val_loss_fusion:.4f}")
     if use_wandb:
-        wandb.log({'epoch': 0, 'val/loss_fusion': val_loss_fusion, 'val/loss_null': val_loss_null})
+        wandb.log({'epoch': 0, 'val/loss_fusion': val_loss_fusion})
 
     for epoch in range(config['num_epochs']):
         fusion_model.train()
-        null_model.train()
         total_fusion = 0.0
-        total_null = 0.0
         total_swapped = 0
         total_rows = 0
         n_batches = 0
         for batch_X, batch_Y in train_loader:
             batch_X_fusion = batch_X.to(const.DEVICE)
-            # Take the null-model view (Casanovo block only) BEFORE the
-            # augmentation; the swap mutates only the pepLM columns, but
-            # slicing first makes that invariant explicit.
-            batch_X_null = batch_X_fusion[:, :casanovo_vocab_size]
             batch_Y = batch_Y.to(const.DEVICE).long()
 
             n_swapped = _apply_plm_top2_swap(
@@ -258,34 +235,24 @@ def main():
             total_rows += batch_X_fusion.size(0)
 
             fusion_opt.zero_grad()
-            null_opt.zero_grad()
-            batch_Y_null = batch_Y
             loss_fusion = fusion_criterion(fusion_model(batch_X_fusion), batch_Y)
-            loss_null = null_criterion(null_model(batch_X_null), batch_Y_null)
             loss_fusion.backward()
-            loss_null.backward()
             fusion_opt.step()
-            null_opt.step()
 
             total_fusion += loss_fusion.item()
-            total_null += loss_null.item()
             n_batches += 1
 
         train_loss_fusion = total_fusion / n_batches
-        train_loss_null = total_null / n_batches
-        val_loss_fusion, val_loss_null = get_val_loss(
-            fusion_model, null_model, fusion_criterion, null_criterion, val_loader, casanovo_vocab_size,
-        )
+        val_loss_fusion = get_val_loss(fusion_model, fusion_criterion, val_loader)
         fusion_sched.step()
-        null_sched.step()
 
         swap_rate = total_swapped / total_rows if total_rows else 0.0
         any_swap = prior_top2_swap_frac > 0.0
         swap_str = f" prior_swap_rate={swap_rate*100:.2f}%" if any_swap else ""
         print(
             f"[epoch {epoch + 1}] "
-            f"train/loss_fusion={train_loss_fusion:.4f} train/loss_null={train_loss_null:.4f} "
-            f"val/loss_fusion={val_loss_fusion:.4f} val/loss_null={val_loss_null:.4f} "
+            f"train/loss_fusion={train_loss_fusion:.4f} "
+            f"val/loss_fusion={val_loss_fusion:.4f} "
             f"lr={fusion_opt.param_groups[0]['lr']:.5f}"
             f"{swap_str}"
         )
@@ -293,9 +260,7 @@ def main():
             log = {
                 'epoch': epoch + 1,
                 'train/loss_fusion': train_loss_fusion,
-                'train/loss_null': train_loss_null,
                 'val/loss_fusion': val_loss_fusion,
-                'val/loss_null': val_loss_null,
                 'learning_rate': fusion_opt.param_groups[0]['lr'],
             }
             if prior_top2_swap_frac > 0.0:
@@ -303,16 +268,10 @@ def main():
             wandb.log(log)
 
     os.makedirs(os.path.dirname(fusion_out_path), exist_ok=True)
-    os.makedirs(os.path.dirname(null_out_path), exist_ok=True)
     torch.save(fusion_model.state_dict(), fusion_out_path)
-    torch.save(null_model.state_dict(), null_out_path)
     print(f"Saved fusion -> {fusion_out_path}")
-    print(f"Saved null   -> {null_out_path}")
     if use_wandb:
-        wandb.log({
-            'fusion_model_path': fusion_out_path,
-            'null_model_path': null_out_path,
-        })
+        wandb.log({'fusion_model_path': fusion_out_path})
         wandb.finish()
 
 

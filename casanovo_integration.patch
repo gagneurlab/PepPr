@@ -236,7 +236,7 @@ index 1830025..5873df9 100644
          return self._cache_proteoform
  
 diff --git a/casanovo/denovo/model.py b/casanovo/denovo/model.py
-index b6694fd..229f03c 100644
+index b6694fd..610886f 100644
 --- a/casanovo/denovo/model.py
 +++ b/casanovo/denovo/model.py
 @@ -4,6 +4,7 @@ import collections
@@ -292,7 +292,7 @@ index b6694fd..229f03c 100644
 +        global PRIOR_MODEL, FUSION_MODEL
 +        PRIOR_MODEL = load_prior_model() if use_peppr else None
 +        FUSION_MODEL = (
-+            load_fusion_model(null_model=False, vocab_size=self.vocab_size,
++            load_fusion_model(vocab_size=self.vocab_size,
 +                              output_size=None)
 +            if use_peppr
 +            else None

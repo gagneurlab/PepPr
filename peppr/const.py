@@ -12,7 +12,7 @@ PROJECT_ROOT = str(current_dir)
 #
 # It is OPTIONAL. Training, data preparation and the paper-reproduction
 # workflows all need it, but plain inference does not: point
-# PEPPR_PRIOR_PATH / PEPPR_FUSION_PATH / PEPPR_NULL_PATH at
+# PEPPR_PRIOR_PATH / PEPPR_FUSION_PATH at
 # checkpoints directly and `import peppr` works with no archive present.
 # Paths derived from the archive are None when it is unconfigured, so an
 # unset PEPPR_DATA_PATH surfaces where the path is actually used rather than
@@ -27,8 +27,7 @@ def require_data_path(what: str = "this operation") -> str:
         raise RuntimeError(
             f"PEPPR_DATA_PATH is required for {what}; set it to the extracted "
             "data archive root. Inference alone does not need it if "
-            "PEPPR_PRIOR_PATH, PEPPR_FUSION_PATH and "
-            "PEPPR_NULL_PATH are set directly."
+            "PEPPR_PRIOR_PATH and PEPPR_FUSION_PATH are set directly."
         )
     return DATA_PATH
 
@@ -147,9 +146,6 @@ CONTRANOVO_PRIOR_PSM_TEACHER_SCORES_TEST_PATH = _under(SHARED_RUN_PATH, "contran
 CONTRANOVO_FUSION_MODEL_PATH = os.environ.get(
     "PEPPR_CONTRANOVO_FUSION_PATH"
 ) or _under(SHARED_MODEL_RUN_PATH, "contranovo_fusion_model.pth")
-CONTRANOVO_NULL_MODEL_PATH = os.environ.get(
-    "PEPPR_CONTRANOVO_NULL_PATH"
-) or _under(SHARED_MODEL_RUN_PATH, "contranovo_null_model.pth")
 
 # --- Per-species files (live under RUN_PATH, different for each species) ---
 # PEPPR_PRIOR_DATA_SUFFIX lets experiments write versioned training data (e.g.
@@ -158,20 +154,20 @@ _prior_data_suffix = os.environ.get("PEPPR_PRIOR_DATA_SUFFIX", "")
 PRIOR_SEQ_X_PATH = _under(PRIOR_RUN_PATH, f'plm_seq_x{_prior_data_suffix}.pt')
 PRIOR_SEQ_Y_PATH = _under(PRIOR_RUN_PATH, f'plm_seq_y{_prior_data_suffix}.pt')
 PRIOR_SEQ_COUNTS_PATH = _under(PRIOR_RUN_PATH, f'plm_seq_counts{_prior_data_suffix}.pkl')
-PRIOR_SEQ_TEACHER_SCORES_PATH = _under(PRIOR_RUN_PATH, f'plm_seq_teacher_scores.pt')
-PRIOR_PSM_X_TRAIN_PATH = _exp(_under(RUN_PATH, f'plm_psm_x_train.pt'))
-PRIOR_PSM_X_TEST_PATH = _exp(_under(RUN_PATH, f'plm_psm_x_test.pt'))
-PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH = _exp(_under(RUN_PATH, f'plm_psm_teacher_scores_train.pt'))
-PRIOR_PSM_TEACHER_SCORES_TEST_PATH = _exp(_under(RUN_PATH, f'plm_psm_teacher_scores_test.pt'))
+PRIOR_SEQ_TEACHER_SCORES_PATH = _under(PRIOR_RUN_PATH, 'plm_seq_teacher_scores.pt')
+PRIOR_PSM_X_TRAIN_PATH = _exp(_under(RUN_PATH, 'plm_psm_x_train.pt'))
+PRIOR_PSM_X_TEST_PATH = _exp(_under(RUN_PATH, 'plm_psm_x_test.pt'))
+PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH = _exp(_under(RUN_PATH, 'plm_psm_teacher_scores_train.pt'))
+PRIOR_PSM_TEACHER_SCORES_TEST_PATH = _exp(_under(RUN_PATH, 'plm_psm_teacher_scores_test.pt'))
 PRIOR_CHECKPOINT_PATH = os.environ.get("PEPPR_PRIOR_PATH") or _under(
     PRIOR_MODEL_RUN_PATH, "plm_ckpt.pt"
 )
 
 # Fusion head is trained from Casanovo + pepLM teacher scores on the same PSM
 # rows; prior scores live under RUN_PATH (per ACTIVE_SPECIES).  Default the
-# checkpoint next to null_model.pth under RUN_PATH so e.g. PEPPR_SPECIES=mouse
-# loads mus_musculus/fusion_model.pth instead of silently using the shared
-# human checkpoint under casanovo/.  Human PepPr uses the asymmetric head
+# checkpoint under RUN_PATH so e.g. PEPPR_SPECIES=mouse loads
+# mus_musculus/fusion_model.pth instead of silently using the shared human
+# checkpoint under casanovo/.  Human PepPr uses the asymmetric head
 # trained against the human_iso pepLM (human_iso_asymbnln/).
 _fusion_model_run = (
     HUMAN_PEPPR_FUSION_RUN if PRIOR_SPECIES == HUMAN_PEPPR_PRIOR else RUN_NAME
@@ -180,10 +176,6 @@ FUSION_MODEL_PATH = os.environ.get("PEPPR_FUSION_PATH") or _under_data(
     "models", _fusion_model_run, "fusion_model.pth"
 )
 FUSION_SCORES_TEACHER_TEST_PATH = _under(RUN_PATH, 'fusion_scores_teacher_test.pt')
-NULL_MODEL_PATH = os.environ.get("PEPPR_NULL_PATH") or _under_data(
-    "models", _fusion_model_run, "null_model.pth"
-)
-NULL_SCORES_TEACHER_TEST_PATH = _under(RUN_PATH, 'null_scores_teacher_test.pt')
 
 PRIOR_INIT_FROM_CHECKPOINT = os.environ.get("PEPPR_PRIOR_INIT_FROM_CHECKPOINT", "0").lower() in ("1", "true", "yes")
 PRIOR_RAND_SUFFIX_FULL_LEN = os.environ.get("PEPPR_PRIOR_RAND_SUFFIX_FULL_LEN", "0").lower() in ("1", "true", "yes")
