@@ -39,8 +39,8 @@ publication), then point at the checkpoints inside it:
 tar xzf peppr_models.tar.gz
 export PEPPR_MODELS="$PWD/peppr_models"
 
-PEPPR_PRIOR_PATH="$PEPPR_MODELS/models/human_iso/plm_ckpt.pt" \
-PEPPR_FUSION_PATH="$PEPPR_MODELS/models/human_iso_asymbnln/fusion_model.pth" \
+PEPPR_PRIOR_PATH="$PEPPR_MODELS/models/human/prior_model.pt" \
+PEPPR_FUSION_PATH="$PEPPR_MODELS/models/human/fusion_model.pt" \
 casanovo sequence \
     -m https://github.com/Noble-Lab/casanovo/releases/download/v5.0.0/casanovo_v5_0_0.ckpt \
     -c casanovo/casanovo/config.yaml \
@@ -49,7 +49,7 @@ casanovo sequence \
     -f spectra.mgf
 ```
 
-The archive holds one prior per species under `models/<species>/plm_ckpt.pt`;
+The archive holds one prior per species under `models/<species>/prior_model.pt`;
 swap `PEPPR_PRIOR_PATH` to use a different one, and the same fusion head still
 applies. `--use_peppr false` gives the plain Casanovo baseline.
 

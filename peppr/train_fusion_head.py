@@ -166,7 +166,7 @@ def main():
         # Guard against clobbering the shared ContraNovo checkpoint: require an
         # experiment-specific override for new training runs.
         _shared = os.path.join(
-            const.FUSION_WORK_DIR or "", "contranovo_fusion_model.pth"
+            const.FUSION_WORK_DIR or "", "contranovo_fusion_model.pt"
         )
         if fusion_out_path == _shared:
             raise RuntimeError(
