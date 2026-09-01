@@ -62,23 +62,6 @@ def work_run_path(run_name: str) -> str:
     return os.path.join(require_data_path("work paths"), "work", run_name)
 
 
-SPECIES = {
-    "human":       {"benchmark_dir": "H.-sapiens",              "fasta": "UP000005640_9606.fasta",        "run_name": "casanovo", "url": "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/reference_proteomes/Eukaryota/UP000005640/UP000005640_9606.fasta.gz"},
-    "mouse":       {"benchmark_dir": "Mus-musculus",            "fasta": "mus_musculus.fasta",               "run_name": "mus_musculus", "url": "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/reference_proteomes/Eukaryota/UP000000589/UP000000589_10090.fasta.gz"},
-    "yeast":       {"benchmark_dir": "Saccharomyces-cerevisiae","fasta": "saccharomyces_cerevisiae.fasta",   "run_name": "saccharomyces_cerevisiae", "url": "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/reference_proteomes/Eukaryota/UP000002311/UP000002311_559292.fasta.gz"},
-    "bacillus":    {"benchmark_dir": "Bacillus-subtilis",       "fasta": "bacillus_subtilis.fasta",          "run_name": "bacillus_subtilis", "url": "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/reference_proteomes/Bacteria/UP000001570/UP000001570_224308.fasta.gz"},
-    "honeybee":    {"benchmark_dir": "Apis-mellifera",          "fasta": "apis_mellifera.fasta",             "run_name": "apis_mellifera", "url": "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/reference_proteomes/Eukaryota/UP000005203/UP000005203_7460.fasta.gz"},
-    "tomato":      {"benchmark_dir": "Solanum-lycopersicum",    "fasta": "solanum_lycopersicum.fasta",       "run_name": "solanum_lycopersicum", "url": "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/reference_proteomes/Eukaryota/UP000004994/UP000004994_4081.fasta.gz"},
-    "cowpea":      {"benchmark_dir": "Vigna-mungo",             "fasta": "vigna_mungo.fasta",                "run_name": "vigna_mungo", "url": "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/reference_proteomes/Eukaryota/UP001374535/UP001374535_3915.fasta.gz"},
-    "archaeon":    {"benchmark_dir": "Methanosarcina-mazei",    "fasta": "methanosarcina_mazei.fasta",       "run_name": "methanosarcina_mazei", "url": "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/reference_proteomes/Archaea/UP000034578/UP000034578_2209.fasta.gz"},
-    "endoloripes": {"benchmark_dir": "Candidatus-endoloripes",  "fasta": "candidatus_endoloripes.fasta",     "run_name": "candidatus_endoloripes", "url": "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/reference_proteomes/Bacteria/UP000094849/UP000094849_1818881.fasta.gz"},
-    "human_iso":   {"benchmark_dir": "H.-sapiens",              "fasta": "human_iso.fasta",                  "run_name": "human_iso", "url": "https://rest.uniprot.org/uniprotkb/stream?compressed=true&format=fasta&includeIsoform=true&query=reviewed%3Atrue+AND+organism_id%3A9606"},
-    "antibody_human": {"benchmark_dir": "H.-sapiens",           "fasta": "antibody_human.fasta",             "run_name": "antibody_human", "url": ""},
-    "antibody_mouse": {"benchmark_dir": "Mus-musculus",         "fasta": "antibody_mouse.fasta",             "run_name": "antibody_mouse", "url": ""},
-}
-
-ACTIVE_SPECIES = os.environ.get("PEPPR_SPECIES", "human")
-_species_cfg = SPECIES[ACTIVE_SPECIES]
 THERMO_RAW_FILE_PARSER = os.environ.get("PEPPR_THERMO_RAW_FILE_PARSER")
 CONTRANOVO_PYTHON = os.environ.get("PEPPR_CONTRANOVO_PYTHON")
 CASANOVO_CONFIG_YAML = os.path.join(current_dir, "casanovo", "casanovo", "config.yaml")
@@ -86,22 +69,40 @@ CASANOVO_DEFAULT_CHECKPOINT = "https://github.com/Noble-Lab/casanovo/releases/do
 CONTRANOVO_CONFIG_YAML = os.path.join(
     PROJECT_ROOT, "ContraNovo", "ContraNovo", "config.yaml"
 )
-RUN_NAME = _species_cfg["run_name"]
-RUN_PATH = _under_data("work", RUN_NAME)
-MODEL_RUN_PATH = _under_data("models", RUN_NAME)
-RESULT_RUN_PATH = _under_data("results", RUN_NAME)
-FASTA_PATH = _under(FASTAS_DIR, _species_cfg["fasta"])
-# Human PepPr always uses the isoform-inclusive pepLM; nine-species benchmark
-# species "human" keeps the canonical proteome FASTA above.
-HUMAN_PEPPR_PRIOR = "human_iso"
-HUMAN_PEPPR_FUSION_RUN = "human_iso_asymbnln"
-_default_prior_species = HUMAN_PEPPR_PRIOR if ACTIVE_SPECIES == "human" else ACTIVE_SPECIES
-PRIOR_SPECIES = os.environ.get("PEPPR_PRIOR_SPECIES", _default_prior_species)
-_prior_species_cfg = SPECIES[PRIOR_SPECIES]
-PRIOR_RUN_PATH = _under_data("work", _prior_species_cfg["run_name"])
-PRIOR_MODEL_RUN_PATH = _under_data("models", _prior_species_cfg["run_name"])
-SHARED_RUN_PATH = _under_data("work", "massivekb")
-SHARED_MODEL_RUN_PATH = _under_data("models", "casanovo")
+
+# Where training writes its intermediates. Point PEPPR_WORK_DIR at one
+# directory and the three sub-roots below are derived from it; override any of
+# them individually to reuse artifacts across runs.
+#
+#   prior   the digested proteome the prior is trained on
+#   run     that prior's teacher scores over this run's PSM corpus
+#   fusion  the backbone teacher scores and fusion targets, which are shared
+#           across priors because they depend only on the corpus
+#
+# Inference needs none of this: it reads PEPPR_PRIOR_PATH and
+# PEPPR_FUSION_PATH directly.
+_work_dir = os.environ.get("PEPPR_WORK_DIR")
+WORK_DIR = os.path.abspath(os.path.expanduser(_work_dir)) if _work_dir else None
+
+PRIOR_WORK_DIR = os.environ.get("PEPPR_PRIOR_WORK_DIR") or _under(WORK_DIR, "prior")
+RUN_WORK_DIR = os.environ.get("PEPPR_RUN_WORK_DIR") or _under(WORK_DIR, "run")
+FUSION_WORK_DIR = os.environ.get("PEPPR_FUSION_WORK_DIR") or _under(WORK_DIR, "fusion")
+
+# Proteome to digest when building prior training data.
+FASTA_PATH = os.environ.get("PEPPR_FASTA")
+
+
+def require_work_dir(what: str = "this operation") -> str:
+    """Return WORK_DIR, or raise naming the variable to set."""
+    if WORK_DIR is None:
+        raise RuntimeError(
+            f"PEPPR_WORK_DIR is required for {what}; point it at a writable "
+            "directory for training intermediates (or set PEPPR_PRIOR_WORK_DIR "
+            "/ PEPPR_RUN_WORK_DIR / PEPPR_FUSION_WORK_DIR individually)."
+        )
+    return WORK_DIR
+
+
 _EXP_DIR = os.environ.get("PEPPR_EXP_DIR")
 def _exp(default_path: str | None) -> str | None:
     if _EXP_DIR is None or default_path is None:
@@ -120,62 +121,46 @@ class DatasetPaths:
 
 
 # --- Shared files (same for all species, live under casanovo/) ---
-FUSION_TRAINING_TRAIN_SET = _under(MASSIVEKB_TRAINING_DIR, "fusion_train_set")
-FUSION_TRAINING_VAL_SET = _under(MASSIVEKB_TRAINING_DIR, "fusion_val_set")
+FUSION_TRAINING_TRAIN_SET = os.environ.get("PEPPR_FUSION_TRAIN_SET")
+FUSION_TRAINING_VAL_SET = os.environ.get("PEPPR_FUSION_VAL_SET")
 
-CASANOVO_TEACHER_TRAIN_MZTAB_PATH = _exp(_under(SHARED_RUN_PATH, "casanovo_teacher_train.mztab"))
-CASANOVO_TEACHER_TEST_MZTAB_PATH = _exp(_under(SHARED_RUN_PATH, "casanovo_teacher_test.mztab"))
-CASANOVO_TEACHER_SCORES_TRAIN_PATH = _exp(_under(SHARED_RUN_PATH, "casanovo_teacher_scores_train.pt"))
-CASANOVO_TEACHER_SCORES_TEST_PATH = _exp(_under(SHARED_RUN_PATH, "casanovo_teacher_scores_test.pt"))
-FUSION_Y_TRAIN_PATH = _exp(_under(SHARED_RUN_PATH, "fusion_y_train.pt"))
-FUSION_Y_TEST_PATH = _exp(_under(SHARED_RUN_PATH, "fusion_y_test.pt"))
+CASANOVO_TEACHER_TRAIN_MZTAB_PATH = _exp(_under(FUSION_WORK_DIR, "casanovo_teacher_train.mztab"))
+CASANOVO_TEACHER_TEST_MZTAB_PATH = _exp(_under(FUSION_WORK_DIR, "casanovo_teacher_test.mztab"))
+CASANOVO_TEACHER_SCORES_TRAIN_PATH = _exp(_under(FUSION_WORK_DIR, "casanovo_teacher_scores_train.pt"))
+CASANOVO_TEACHER_SCORES_TEST_PATH = _exp(_under(FUSION_WORK_DIR, "casanovo_teacher_scores_test.pt"))
+FUSION_Y_TRAIN_PATH = _exp(_under(FUSION_WORK_DIR, "fusion_y_train.pt"))
+FUSION_Y_TEST_PATH = _exp(_under(FUSION_WORK_DIR, "fusion_y_test.pt"))
 
 # --- ContraNovo teacher / fusion artifacts (separate from casanovo's because
 # the score tensors live in a different vocab even though the dim happens to
 # also be 29).
-CONTRANOVO_TEACHER_TRAIN_PT_PATH = _under(SHARED_RUN_PATH, "contranovo_teacher_train_torch_data.pt")
-CONTRANOVO_TEACHER_TEST_PT_PATH = _under(SHARED_RUN_PATH, "contranovo_teacher_test_torch_data.pt")
-CONTRANOVO_TEACHER_SCORES_TRAIN_PATH = _under(SHARED_RUN_PATH, "contranovo_teacher_scores_train.pt")
-CONTRANOVO_TEACHER_SCORES_TEST_PATH = _under(SHARED_RUN_PATH, "contranovo_teacher_scores_test.pt")
-CONTRANOVO_FUSION_Y_TRAIN_PATH = _under(SHARED_RUN_PATH, "contranovo_fusion_y_train.pt")
-CONTRANOVO_FUSION_Y_TEST_PATH = _under(SHARED_RUN_PATH, "contranovo_fusion_y_test.pt")
-CONTRANOVO_PRIOR_PSM_X_TRAIN_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_x_train.pt")
-CONTRANOVO_PRIOR_PSM_X_TEST_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_x_test.pt")
-CONTRANOVO_PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_teacher_scores_train.pt")
-CONTRANOVO_PRIOR_PSM_TEACHER_SCORES_TEST_PATH = _under(SHARED_RUN_PATH, "contranovo_plm_psm_teacher_scores_test.pt")
-CONTRANOVO_FUSION_MODEL_PATH = os.environ.get(
-    "PEPPR_CONTRANOVO_FUSION_PATH"
-) or _under(SHARED_MODEL_RUN_PATH, "contranovo_fusion_model.pth")
+CONTRANOVO_TEACHER_TRAIN_PT_PATH = _under(FUSION_WORK_DIR, "contranovo_teacher_train_torch_data.pt")
+CONTRANOVO_TEACHER_TEST_PT_PATH = _under(FUSION_WORK_DIR, "contranovo_teacher_test_torch_data.pt")
+CONTRANOVO_TEACHER_SCORES_TRAIN_PATH = _under(FUSION_WORK_DIR, "contranovo_teacher_scores_train.pt")
+CONTRANOVO_TEACHER_SCORES_TEST_PATH = _under(FUSION_WORK_DIR, "contranovo_teacher_scores_test.pt")
+CONTRANOVO_FUSION_Y_TRAIN_PATH = _under(FUSION_WORK_DIR, "contranovo_fusion_y_train.pt")
+CONTRANOVO_FUSION_Y_TEST_PATH = _under(FUSION_WORK_DIR, "contranovo_fusion_y_test.pt")
+CONTRANOVO_PRIOR_PSM_X_TRAIN_PATH = _under(FUSION_WORK_DIR, "contranovo_plm_psm_x_train.pt")
+CONTRANOVO_PRIOR_PSM_X_TEST_PATH = _under(FUSION_WORK_DIR, "contranovo_plm_psm_x_test.pt")
+CONTRANOVO_PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH = _under(FUSION_WORK_DIR, "contranovo_plm_psm_teacher_scores_train.pt")
+CONTRANOVO_PRIOR_PSM_TEACHER_SCORES_TEST_PATH = _under(FUSION_WORK_DIR, "contranovo_plm_psm_teacher_scores_test.pt")
+CONTRANOVO_FUSION_MODEL_PATH = os.environ.get("PEPPR_CONTRANOVO_FUSION_PATH")
 
-# --- Per-species files (live under RUN_PATH, different for each species) ---
+# --- Prior training data and this run's teacher scores ---
 # PEPPR_PRIOR_DATA_SUFFIX lets experiments write versioned training data (e.g.
 # "_sw_v2") without overwriting the baseline files.
 _prior_data_suffix = os.environ.get("PEPPR_PRIOR_DATA_SUFFIX", "")
-PRIOR_SEQ_X_PATH = _under(PRIOR_RUN_PATH, f'plm_seq_x{_prior_data_suffix}.pt')
-PRIOR_SEQ_Y_PATH = _under(PRIOR_RUN_PATH, f'plm_seq_y{_prior_data_suffix}.pt')
-PRIOR_SEQ_COUNTS_PATH = _under(PRIOR_RUN_PATH, f'plm_seq_counts{_prior_data_suffix}.pkl')
-PRIOR_SEQ_TEACHER_SCORES_PATH = _under(PRIOR_RUN_PATH, 'plm_seq_teacher_scores.pt')
-PRIOR_PSM_X_TRAIN_PATH = _exp(_under(RUN_PATH, 'plm_psm_x_train.pt'))
-PRIOR_PSM_X_TEST_PATH = _exp(_under(RUN_PATH, 'plm_psm_x_test.pt'))
-PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH = _exp(_under(RUN_PATH, 'plm_psm_teacher_scores_train.pt'))
-PRIOR_PSM_TEACHER_SCORES_TEST_PATH = _exp(_under(RUN_PATH, 'plm_psm_teacher_scores_test.pt'))
-PRIOR_CHECKPOINT_PATH = os.environ.get("PEPPR_PRIOR_PATH") or _under(
-    PRIOR_MODEL_RUN_PATH, "plm_ckpt.pt"
-)
+PRIOR_SEQ_X_PATH = _under(PRIOR_WORK_DIR, f'plm_seq_x{_prior_data_suffix}.pt')
+PRIOR_SEQ_Y_PATH = _under(PRIOR_WORK_DIR, f'plm_seq_y{_prior_data_suffix}.pt')
+PRIOR_SEQ_COUNTS_PATH = _under(PRIOR_WORK_DIR, f'plm_seq_counts{_prior_data_suffix}.pkl')
+PRIOR_SEQ_TEACHER_SCORES_PATH = _under(PRIOR_WORK_DIR, 'plm_seq_teacher_scores.pt')
+PRIOR_PSM_X_TRAIN_PATH = _exp(_under(RUN_WORK_DIR, 'plm_psm_x_train.pt'))
+PRIOR_PSM_X_TEST_PATH = _exp(_under(RUN_WORK_DIR, 'plm_psm_x_test.pt'))
+PRIOR_PSM_TEACHER_SCORES_TRAIN_PATH = _exp(_under(RUN_WORK_DIR, 'plm_psm_teacher_scores_train.pt'))
+PRIOR_PSM_TEACHER_SCORES_TEST_PATH = _exp(_under(RUN_WORK_DIR, 'plm_psm_teacher_scores_test.pt'))
+PRIOR_CHECKPOINT_PATH = os.environ.get("PEPPR_PRIOR_PATH")
 
-# Fusion head is trained from Casanovo + pepLM teacher scores on the same PSM
-# rows; prior scores live under RUN_PATH (per ACTIVE_SPECIES).  Default the
-# checkpoint under RUN_PATH so e.g. PEPPR_SPECIES=mouse loads
-# mus_musculus/fusion_model.pth instead of silently using the shared human
-# checkpoint under casanovo/.  Human PepPr uses the asymmetric head
-# trained against the human_iso pepLM (human_iso_asymbnln/).
-_fusion_model_run = (
-    HUMAN_PEPPR_FUSION_RUN if PRIOR_SPECIES == HUMAN_PEPPR_PRIOR else RUN_NAME
-)
-FUSION_MODEL_PATH = os.environ.get("PEPPR_FUSION_PATH") or _under_data(
-    "models", _fusion_model_run, "fusion_model.pth"
-)
-FUSION_SCORES_TEACHER_TEST_PATH = _under(RUN_PATH, 'fusion_scores_teacher_test.pt')
+FUSION_MODEL_PATH = os.environ.get("PEPPR_FUSION_PATH")
 
 PRIOR_INIT_FROM_CHECKPOINT = os.environ.get("PEPPR_PRIOR_INIT_FROM_CHECKPOINT", "0").lower() in ("1", "true", "yes")
 PRIOR_RAND_SUFFIX_FULL_LEN = os.environ.get("PEPPR_PRIOR_RAND_SUFFIX_FULL_LEN", "0").lower() in ("1", "true", "yes")

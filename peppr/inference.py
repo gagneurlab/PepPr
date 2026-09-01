@@ -114,9 +114,11 @@ def main(argv: list[str] | None = None) -> int:
                 scores_fusion[i:end] = fusion_model(X_fusion[i:end].view(-1, X_fusion.size(2))).view(-1, const.PRIOR_BLOCK_SIZE, vocab_size)
                 print(f"Processed {i} of {len(X_fusion)}")
 
-        torch.save(scores_fusion, const.FUSION_SCORES_TEACHER_TEST_PATH)
+        torch.save(scores_fusion,
+                   os.path.join(const.require_work_dir("fusion teacher scores"),
+                                "fusion_scores_teacher_test.pt"))
     elif model_type == 'contranovo':
-        print(f"=== ContraNovo +/- pepLM on species: {const.ACTIVE_SPECIES} ===")
+        print("=== ContraNovo +/- prior ===")
         contranovo_root = os.path.join(const.PROJECT_ROOT, "ContraNovo")
         contranovo_python = const.CONTRANOVO_PYTHON
         if not contranovo_python:
@@ -127,7 +129,11 @@ def main(argv: list[str] | None = None) -> int:
         contranovo_ckpt = os.path.join(contranovo_root, "ContraNovo", "ContraNovo.ckpt")
         contranovo_config = os.path.join(contranovo_root, "ContraNovo", "config.yaml")
         run_denovo = os.path.join(contranovo_root, "run_denovo.py")
-        out_root = os.path.join(const.RESULT_RUN_PATH, "contranovo")
+        out_root = os.path.join(
+            os.environ.get("PEPPR_RESULT_DIR")
+            or const.require_work_dir("ContraNovo results"),
+            "contranovo",
+        )
         os.makedirs(out_root, exist_ok=True)
 
         cn_dataset = resolve_dataset(
@@ -151,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
 
         for use_peppr in ("false", "true"):
             suffix = "fusion" if use_peppr == "true" else "dnps"
-            out_dir = os.path.join(out_root, f"{const.ACTIVE_SPECIES}_{suffix}")
+            out_dir = os.path.join(out_root, suffix)
             os.makedirs(out_dir, exist_ok=True)
             for mgf in mgf_files:
                 base = os.path.splitext(os.path.basename(mgf))[0]
@@ -198,7 +204,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             use_peppr_modes = [args.use_peppr]
 
-        print(f"=== Auto inference for species: {const.ACTIVE_SPECIES} ===")
+        print("=== Auto inference ===")
         print(f"Datasets: {[d.name for d in datasets]}  use_peppr={use_peppr_modes}")
 
         casanovo_config = resolve_casanovo_config()

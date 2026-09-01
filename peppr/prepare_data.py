@@ -146,8 +146,14 @@ def _find_cdr3_range(seq: str) -> tuple[int, int] | None:
 
 
 def generate_plm_training_data():
-    const.require_data_path("pepLM training data")
-    os.makedirs(const.RUN_PATH, exist_ok=True)
+    if const.FASTA_PATH is None:
+        raise RuntimeError(
+            "PEPPR_FASTA is required to build prior training data; point it at "
+            "the proteome FASTA to digest."
+        )
+    if const.PRIOR_WORK_DIR is None:
+        const.require_work_dir("prior training data")
+    os.makedirs(const.PRIOR_WORK_DIR, exist_ok=True)
     # PEPPR_PRIOR_PROTEASES supports only tryptic digestion or non-specific
     # sliding-window generation.
     digestion_mode = os.environ.get("PEPPR_PRIOR_PROTEASES", "trypsin").strip().lower()
@@ -490,18 +496,14 @@ def generate_contranovo_fusion_files():
 def prepare_training_data() -> None:
     """Create prior and fusion training tensors when they do not already exist."""
     print(
-        f"=== Training data: species={const.ACTIVE_SPECIES}, "
-        f"prior species={const.PRIOR_SPECIES}, RUN_PATH={const.RUN_PATH} ==="
+        f"=== Training data: prior={const.PRIOR_WORK_DIR}, "
+        f"run={const.RUN_WORK_DIR}, fusion={const.FUSION_WORK_DIR} ==="
     )
-    prior_data_exists = os.path.exists(const.PRIOR_SEQ_X_PATH) and os.path.exists(const.PRIOR_SEQ_Y_PATH)
-    if const.PRIOR_SPECIES != const.ACTIVE_SPECIES:
-        if not prior_data_exists:
-            raise RuntimeError(
-                f"Cross-species prior data not found at {const.PRIOR_RUN_PATH}; "
-                f"train {const.PRIOR_SPECIES!r} first."
-            )
-        print(f"Using cross-species prior data from {const.PRIOR_RUN_PATH}.")
-    elif prior_data_exists:
+    prior_data_exists = (
+        os.path.exists(const.PRIOR_SEQ_X_PATH)
+        and os.path.exists(const.PRIOR_SEQ_Y_PATH)
+    )
+    if prior_data_exists:
         print("prior training data already exists, skipping.")
     else:
         print(f"Generating prior training data from {const.FASTA_PATH}...")
