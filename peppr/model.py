@@ -248,7 +248,7 @@ class GPT(nn.Module):
                 cache[key] = table
         else:
             table = const.CASANOVO_TRANSLATION
-        out = torch.zeros(tokens_casanovo.size(0), const.PLM_BLOCK_SIZE, dtype=torch.int64, device=const.DEVICE)
+        out = torch.zeros(tokens_casanovo.size(0), const.PRIOR_BLOCK_SIZE, dtype=torch.int64, device=const.DEVICE)
         # tokens_casanovo lives on the model device (which may differ from
         # const.DEVICE if e.g. CUDA_VISIBLE_DEVICES restricts the device).
         # Move the translation table once per (tokenizer, device) so the
@@ -262,7 +262,7 @@ class GPT(nn.Module):
         return out
 
     def input_from_contranovo_vocab(self, tokens_contranovo, translation):
-        out = torch.zeros(tokens_contranovo.size(0), const.PLM_BLOCK_SIZE, dtype=torch.int64, device=const.DEVICE)
+        out = torch.zeros(tokens_contranovo.size(0), const.PRIOR_BLOCK_SIZE, dtype=torch.int64, device=const.DEVICE)
         out[:, 1:tokens_contranovo.size(1) + 1] = translation[tokens_contranovo][:, :out.size(1) - 1]
         out[:, 0] = const.START_TOKEN
         return out
@@ -349,9 +349,9 @@ class FusionModel(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, casanovo_vocab_size):
         super().__init__()
         self.casanovo_vocab_size = casanovo_vocab_size
-        plm_size = input_size - casanovo_vocab_size
+        prior_size = input_size - casanovo_vocab_size
         self.bn_cas = nn.BatchNorm1d(casanovo_vocab_size)
-        self.ln_plm = nn.LayerNorm(plm_size) if plm_size > 0 else None
+        self.ln_plm = nn.LayerNorm(prior_size) if prior_size > 0 else None
         self.fc1 = nn.Linear(input_size, hidden_size)
         self.relu = nn.ReLU()
         self.fc2 = nn.Linear(hidden_size, output_size)
@@ -377,26 +377,26 @@ def remove_prefix(state_dict):
 
 def _maybe_compile(model):
     import os
-    if os.environ.get("DNPS_DISABLE_TORCH_COMPILE", "0") in ("1", "true", "True"):
+    if os.environ.get("PEPPR_DISABLE_TORCH_COMPILE", "0") in ("1", "true", "True"):
         return model
     return torch.compile(model)
 
 
-def load_plm_model():
+def load_prior_model():
     import os
-    if const.PLM_CHECKPOINT_PATH is None:
+    if const.PRIOR_CHECKPOINT_PATH is None:
         raise FileNotFoundError(
-            "No pepLM checkpoint configured. Set DNPS_PLM_CKPT_PATH to the .pt "
-            "file, or set DNPS_DATA_PATH to the data archive root to use the "
+            "No pepLM checkpoint configured. Set PEPPR_PRIOR_PATH to the .pt "
+            "file, or set PEPPR_DATA_PATH to the data archive root to use the "
             "checkpoint bundled there."
         )
-    if not os.path.exists(const.PLM_CHECKPOINT_PATH):
+    if not os.path.exists(const.PRIOR_CHECKPOINT_PATH):
         raise FileNotFoundError(
-            f"PLM checkpoint not found at {const.PLM_CHECKPOINT_PATH!r}. "
-            "Set DNPS_PLM_CKPT_PATH to the .pt file inside the container, "
+            f"prior checkpoint not found at {const.PRIOR_CHECKPOINT_PATH!r}. "
+            "Set PEPPR_PRIOR_PATH to the .pt file inside the container, "
             "or bind-mount it at the default path."
         )
-    checkpoint = torch.load(const.PLM_CHECKPOINT_PATH, map_location=const.DEVICE)
+    checkpoint = torch.load(const.PRIOR_CHECKPOINT_PATH, map_location=const.DEVICE)
     model_args = checkpoint['model_args']
     state_dict = checkpoint['model']
     gptconf = GPTConfig(**model_args)
@@ -429,14 +429,14 @@ def load_fusion_model(null_model, vocab_size, path=None, output_size=None):
         fusion_path = path
     if fusion_path is None:
         raise FileNotFoundError(
-            "No fusion model weights configured. Set DNPS_FUSION_MODEL_PATH "
-            "(or DNPS_NULL_MODEL_PATH), pass ``path=``, or set DNPS_DATA_PATH "
+            "No fusion model weights configured. Set PEPPR_FUSION_PATH "
+            "(or PEPPR_NULL_PATH), pass ``path=``, or set PEPPR_DATA_PATH "
             "to the data archive root to use the weights bundled there."
         )
     if not os.path.exists(fusion_path):
         raise FileNotFoundError(
             f"Fusion model weights not found at {fusion_path!r}. "
-            "Set DNPS_FUSION_MODEL_PATH (or DNPS_NULL_MODEL_PATH) accordingly."
+            "Set PEPPR_FUSION_PATH (or PEPPR_NULL_PATH) accordingly."
         )
     if output_size is None:
         output_size = vocab_size

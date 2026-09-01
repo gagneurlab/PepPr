@@ -39,8 +39,8 @@ A ContraNovo integration is included too: `cd ContraNovo && git apply
 Point at your checkpoints and run the patched Casanovo with `--use_peppr`:
 
 ```bash
-DNPS_PLM_CKPT_PATH=/path/to/plm_ckpt.pt \
-DNPS_FUSION_MODEL_PATH=/path/to/fusion_model.pth \
+PEPPR_PRIOR_PATH=/path/to/plm_ckpt.pt \
+PEPPR_FUSION_PATH=/path/to/fusion_model.pth \
 casanovo sequence \
     -m https://github.com/Noble-Lab/casanovo/releases/download/v5.0.0/casanovo_v5_0_0.ckpt \
     -c casanovo/casanovo/config.yaml \
@@ -55,33 +55,33 @@ Inference needs only the checkpoint paths — no data archive.
 
 ## Train
 
-Set `DNPS_DATA_PATH` to a data archive holding the FASTAs and training corpora
+Set `PEPPR_DATA_PATH` to a data archive holding the FASTAs and training corpora
 (required for training and data preparation only).
 
 ```bash
 # pepLM: digest the proteome, then train.
-DNPS_SPECIES=human python peppr/prepare_data.py
-DNPS_SPECIES=human python peppr/train_peptide_prior_model.py
+PEPPR_SPECIES=human python peppr/prepare_data.py
+PEPPR_SPECIES=human python peppr/train_peptide_prior_model.py
 
 # Fusion head: teacher scores from the frozen backbone + the pepLM.
-DNPS_FUSION_BACKBONE=casanovo python peppr/train_fusion_head.py
+PEPPR_BACKBONE=casanovo python peppr/train_fusion_head.py
 ```
 
 The fusion head is prior-independent: once trained, swap priors at inference
-with `DNPS_PLM_CKPT_PATH`.
+with `PEPPR_PRIOR_PATH`.
 
 ## Environment variables
 
 | Variable                 | Meaning                                       | Default                            |
 | ------------------------ | --------------------------------------------- | ---------------------------------- |
-| `DNPS_PLM_CKPT_PATH`     | pepLM checkpoint                              | under `$DNPS_DATA_PATH/models/`    |
-| `DNPS_FUSION_MODEL_PATH` | fusion head                                   | under `$DNPS_DATA_PATH/models/`    |
-| `DNPS_NULL_MODEL_PATH`   | null (backbone-only) head                     | under `$DNPS_DATA_PATH/models/`    |
-| `DNPS_DATA_PATH`         | data archive root                             | required for training / data prep  |
-| `DNPS_SPECIES`           | species being evaluated                       | `human`                            |
-| `DNPS_PLM_SPECIES`       | which species' pepLM to use                   | `human_iso` for human, else target |
-| `DNPS_FUSION_BACKBONE`   | `casanovo` or `contranovo`                    | `casanovo`                         |
-| `DNPS_DATASETS_MODULE`   | module defining datasets for `inference.py`   | `peppr.const`                      |
+| `PEPPR_PRIOR_PATH`     | pepLM checkpoint                              | under `$PEPPR_DATA_PATH/models/`    |
+| `PEPPR_FUSION_PATH` | fusion head                                   | under `$PEPPR_DATA_PATH/models/`    |
+| `PEPPR_NULL_PATH`   | null (backbone-only) head                     | under `$PEPPR_DATA_PATH/models/`    |
+| `PEPPR_DATA_PATH`         | data archive root                             | required for training / data prep  |
+| `PEPPR_SPECIES`           | species being evaluated                       | `human`                            |
+| `PEPPR_PRIOR_SPECIES`       | which species' pepLM to use                   | `human_iso` for human, else target |
+| `PEPPR_BACKBONE`   | `casanovo` or `contranovo`                    | `casanovo`                         |
+| `PEPPR_DATASETS_MODULE`   | module defining datasets for `inference.py`   | `peppr.const`                      |
 
-With `DNPS_DATA_PATH` unset, archive-derived paths resolve to `None` and any
+With `PEPPR_DATA_PATH` unset, archive-derived paths resolve to `None` and any
 operation that needs them fails with a message naming the variable to set.

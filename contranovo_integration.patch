@@ -1,5 +1,5 @@
 diff --git a/ContraNovo/ContraNovo.py b/ContraNovo/ContraNovo.py
-index 5d26640..a083683 100644
+index 5d26640..2981e88 100644
 --- a/ContraNovo/ContraNovo.py
 +++ b/ContraNovo/ContraNovo.py
 @@ -73,6 +73,14 @@ logger = logging.getLogger("ContraNovo")
@@ -40,14 +40,14 @@ index 5d26640..a083683 100644
          logger.info("Train the ContraNovo model.")
          model_runner.train(peak_path, peak_path_val, peak_path_test, model, config)
 diff --git a/ContraNovo/denovo/model.py b/ContraNovo/denovo/model.py
-index 4610f6a..fde245c 100644
+index 4610f6a..01c6bc2 100644
 --- a/ContraNovo/denovo/model.py
 +++ b/ContraNovo/denovo/model.py
 @@ -18,9 +18,19 @@ import torch.nn.functional as F
  from . import evaluate
  from ..denovo.clipmodel import PeptideEncoder
  
-+from peppr.model import load_plm_model, load_fusion_model
++from peppr.model import load_prior_model, load_fusion_model
 +from peppr.const import build_contranovo_translation
 +from peppr import const as dnps_const
 +
@@ -56,7 +56,7 @@ index 4610f6a..fde245c 100644
  
 +# Global handles so the PLM/fusion modules don't get registered as
 +# LightningModule parameters.
-+PLM_MODEL = None
++PRIOR_MODEL = None
 +FUSION_MODEL = None
 +CONTRANOVO_TRANSLATION = None
 +
@@ -75,9 +75,9 @@ index 4610f6a..fde245c 100644
          # Output writer during predicting.
          self.out_writer = out_writer
  
-+        global PLM_MODEL, FUSION_MODEL, CONTRANOVO_TRANSLATION
++        global PRIOR_MODEL, FUSION_MODEL, CONTRANOVO_TRANSLATION
 +        if use_peppr:
-+            PLM_MODEL = load_plm_model()
++            PRIOR_MODEL = load_prior_model()
 +            # ContraNovo's vocab dim used for the score tensor is
 +            # `decoder.vocab_size + 1` (see beam_search_decode). Use the
 +            # ContraNovo-specific fusion model — casanovo's would load by
@@ -89,7 +89,7 @@ index 4610f6a..fde245c 100644
 +            )
 +            CONTRANOVO_TRANSLATION = build_contranovo_translation(self.residues)
 +        else:
-+            PLM_MODEL = None
++            PRIOR_MODEL = None
 +            FUSION_MODEL = None
 +            CONTRANOVO_TRANSLATION = None
 +
@@ -108,16 +108,16 @@ index 4610f6a..fde245c 100644
                  mem_masks[~decoded, :],
              )
 +
-+            if PLM_MODEL is not None:
++            if PRIOR_MODEL is not None:
 +                # Slice PLM input to the actual decoded length (i+1 positions:
-+                # START + i predicted tokens). Padding to PLM_BLOCK_SIZE here
++                # START + i predicted tokens). Padding to PRIOR_BLOCK_SIZE here
 +                # would create fully-masked attention rows, which torch 2.1.2's
 +                # SDPA returns as NaN (later torches return zeros). Feeding the
 +                # actual length avoids the issue entirely.
-+                _plm_in = PLM_MODEL.input_from_contranovo_vocab(
++                _plm_in = PRIOR_MODEL.input_from_contranovo_vocab(
 +                    tokens[~decoded, :i], CONTRANOVO_TRANSLATION
 +                )[:, : i + 1]
-+                _plm_out, *_ = PLM_MODEL(_plm_in)
++                _plm_out, *_ = PRIOR_MODEL(_plm_in)
 +                _plm_out = _plm_out.to(_out.device)
 +                # _out and _plm_out now both have length i+1.
 +                _fusion_in = torch.cat((_out, _plm_out), dim=2)
@@ -136,7 +136,7 @@ index 4610f6a..fde245c 100644
              scores, tokens = self._get_topk_beams(scores, tokens, batch, i)
  
 diff --git a/ContraNovo/denovo/model_runner.py b/ContraNovo/denovo/model_runner.py
-index 4295682..09a9a05 100644
+index 4295682..1a60a7f 100644
 --- a/ContraNovo/denovo/model_runner.py
 +++ b/ContraNovo/denovo/model_runner.py
 @@ -24,7 +24,8 @@ def predict(
@@ -203,356 +203,3 @@ index 4295682..09a9a05 100644
      )
      # Read the MS/MS spectra for which to predict peptide sequences.
      if annotated:
-diff --git a/run_denovo.py b/run_denovo.py
-new file mode 100644
-index 0000000..aa706c3
---- /dev/null
-+++ b/run_denovo.py
-@@ -0,0 +1,127 @@
-+"""Run ContraNovo prediction mode and write PSMs to CSV."""
-+
-+import argparse
-+import csv
-+import logging
-+import os
-+import sys
-+
-+import yaml
-+from pytorch_lightning.lite import LightningLite
-+
-+from ContraNovo import utils
-+from ContraNovo.denovo import model_runner
-+
-+
-+class SimpleWriter:
-+    """Collect the PSMs emitted by ``Spec2Pep.on_predict_epoch_end``."""
-+
-+    def __init__(self, out_csv):
-+        self.out_csv = out_csv
-+        self.psms = []
-+
-+    def save(self):
-+        with open(self.out_csv, "w", newline="") as handle:
-+            writer = csv.writer(handle)
-+            writer.writerow([
-+                "title", "peptide", "score", "charge",
-+                "precursor_mz", "calc_mz", "aa_scores",
-+            ])
-+            for psm in self.psms:
-+                peptide, title, score, charge, precursor_mz, calc_mz, aa_scores = psm
-+                writer.writerow([
-+                    title, peptide, score, charge, precursor_mz, calc_mz, aa_scores
-+                ])
-+
-+
-+def _load_config(path):
-+    with open(path) as handle:
-+        config = yaml.safe_load(handle)
-+    config_types = {
-+        "random_seed": int,
-+        "n_peaks": int,
-+        "min_mz": float,
-+        "max_mz": float,
-+        "min_intensity": float,
-+        "remove_precursor_tol": float,
-+        "max_charge": int,
-+        "precursor_mass_tol": float,
-+        "isotope_error_range": lambda value: (int(value[0]), int(value[1])),
-+        "dim_model": int,
-+        "n_head": int,
-+        "dim_feedforward": int,
-+        "n_layers": int,
-+        "dropout": float,
-+        "dim_intensity": int,
-+        "max_length": int,
-+        "n_log": int,
-+        "warmup_iters": int,
-+        "max_iters": int,
-+        "learning_rate": float,
-+        "weight_decay": float,
-+        "train_batch_size": int,
-+        "predict_batch_size": int,
-+        "n_beams": int,
-+        "max_epochs": int,
-+        "num_sanity_val_steps": int,
-+        "train_from_scratch": bool,
-+        "save_model": bool,
-+        "model_save_folder_path": str,
-+        "save_weights_only": bool,
-+        "every_n_train_steps": int,
-+    }
-+    for key, converter in config_types.items():
-+        if config.get(key) is not None:
-+            config[key] = converter(config[key])
-+    config["residues"] = {
-+        str(amino_acid): float(mass)
-+        for amino_acid, mass in config["residues"].items()
-+    }
-+    config["n_workers"] = utils.n_workers()
-+    return config
-+
-+
-+def main():
-+    parser = argparse.ArgumentParser()
-+    parser.add_argument("--peak_path", required=True, help="Input MGF path")
-+    parser.add_argument("--model", required=True, help="ContraNovo checkpoint")
-+    parser.add_argument("--out", required=True, help="Output CSV path")
-+    parser.add_argument(
-+        "--config",
-+        default=os.path.join(os.path.dirname(__file__), "ContraNovo", "config.yaml"),
-+    )
-+    parser.add_argument(
-+        "--use_peppr",
-+        type=lambda value: str(value).lower() in ("1", "true", "yes", "y"),
-+        default=False,
-+        help="Fuse pepLM predictions with ContraNovo during beam search.",
-+    )
-+    args = parser.parse_args()
-+
-+    logging.captureWarnings(True)
-+    root = logging.getLogger()
-+    root.setLevel(logging.INFO)
-+    handler = logging.StreamHandler(sys.stderr)
-+    handler.setFormatter(
-+        logging.Formatter("{asctime} {levelname} {name} {message}", style="{")
-+    )
-+    root.addHandler(handler)
-+    for name in ("github", "h5py", "numba", "pytorch_lightning", "torch", "urllib3"):
-+        logging.getLogger(name).setLevel(logging.WARNING)
-+
-+    config = _load_config(args.config)
-+    LightningLite.seed_everything(seed=config["random_seed"], workers=True)
-+    writer = SimpleWriter(args.out)
-+    model_runner.predict(
-+        args.peak_path,
-+        args.model,
-+        config,
-+        writer,
-+        use_peppr=args.use_peppr,
-+    )
-+    writer.save()
-+    print(f"Wrote {len(writer.psms)} PSMs to {args.out}")
-+
-+
-+if __name__ == "__main__":
-+    main()
-diff --git a/run_teacher.py b/run_teacher.py
-new file mode 100644
-index 0000000..0702e07
---- /dev/null
-+++ b/run_teacher.py
-@@ -0,0 +1,214 @@
-+"""Run ContraNovo teacher forcing and save scores and target tokens."""
-+
-+import argparse
-+import logging
-+import os
-+import sys
-+import tempfile
-+import uuid
-+
-+import numpy as np
-+import pytorch_lightning as pl
-+import torch
-+import yaml
-+from tqdm import tqdm
-+
-+from ContraNovo import utils
-+from ContraNovo.denovo.db_dataloader import DeNovoDataModule
-+from ContraNovo.denovo.model import Spec2Pep
-+
-+
-+_PROFORMA_TO_CONTRANOVO = {
-+    "C[Carbamidomethyl]": "C+57.021",
-+    "M[Oxidation]": "M+15.995",
-+    "N[Deamidated]": "N+0.984",
-+    "Q[Deamidated]": "Q+0.984",
-+    "[Acetyl]-": "+42.011",
-+    "[Carbamyl]-": "+43.006",
-+    "[Ammonia-loss]-": "-17.027",
-+    "[+25.980265]-": "+43.006-17.027",
-+}
-+
-+
-+def _translate_sequence(sequence):
-+    for source, target in _PROFORMA_TO_CONTRANOVO.items():
-+        sequence = sequence.replace(source, target)
-+    return sequence
-+
-+
-+def _load_config(path):
-+    with open(path) as handle:
-+        config = yaml.safe_load(handle)
-+    config_types = {
-+        "random_seed": int,
-+        "n_peaks": int,
-+        "min_mz": float,
-+        "max_mz": float,
-+        "min_intensity": float,
-+        "remove_precursor_tol": float,
-+        "max_charge": int,
-+        "precursor_mass_tol": float,
-+        "isotope_error_range": lambda value: (int(value[0]), int(value[1])),
-+        "dim_model": int,
-+        "n_head": int,
-+        "dim_feedforward": int,
-+        "n_layers": int,
-+        "dropout": float,
-+        "dim_intensity": int,
-+        "max_length": int,
-+        "n_log": int,
-+        "warmup_iters": int,
-+        "max_iters": int,
-+        "learning_rate": float,
-+        "weight_decay": float,
-+        "train_batch_size": int,
-+        "predict_batch_size": int,
-+        "n_beams": int,
-+        "max_epochs": int,
-+        "num_sanity_val_steps": int,
-+        "train_from_scratch": bool,
-+        "save_model": bool,
-+        "model_save_folder_path": str,
-+        "save_weights_only": bool,
-+        "every_n_train_steps": int,
-+    }
-+    for key, converter in config_types.items():
-+        if config.get(key) is not None:
-+            config[key] = converter(config[key])
-+    config["residues"] = {
-+        str(amino_acid): float(mass)
-+        for amino_acid, mass in config["residues"].items()
-+    }
-+    config["n_workers"] = utils.n_workers()
-+    return config
-+
-+
-+def _build_loader(config, peak_path, index_path):
-+    valid_charge = np.arange(1, config["max_charge"] + 1)
-+    data = DeNovoDataModule(
-+        batch_size=config["predict_batch_size"],
-+        n_peaks=config["n_peaks"],
-+        min_mz=config["min_mz"],
-+        max_mz=config["max_mz"],
-+        min_intensity=config["min_intensity"],
-+        remove_precursor_tol=config["remove_precursor_tol"],
-+        n_workers=config["n_workers"],
-+        train_filenames=None,
-+        val_filenames=None,
-+        test_filenames=[peak_path],
-+        train_index_path=None,
-+        val_index_path=None,
-+        test_index_path=[index_path],
-+        annotated=True,
-+        valid_charge=valid_charge,
-+        mode="test",
-+    )
-+    data.prepare_data()
-+    data.setup(stage="test")
-+    return data.test_dataloader()
-+
-+
-+def main():
-+    parser = argparse.ArgumentParser()
-+    parser.add_argument("--peak_path", required=True, help="Annotated MGF path")
-+    parser.add_argument("--model", required=True, help="ContraNovo checkpoint")
-+    parser.add_argument(
-+        "--config",
-+        default=os.path.join(os.path.dirname(__file__), "ContraNovo", "config.yaml"),
-+    )
-+    parser.add_argument("--out", required=True, help="Output PyTorch file")
-+    parser.add_argument(
-+        "--device",
-+        default="cuda" if torch.cuda.is_available() else "cpu",
-+    )
-+    args = parser.parse_args()
-+
-+    logging.captureWarnings(True)
-+    root = logging.getLogger()
-+    root.setLevel(logging.INFO)
-+    handler = logging.StreamHandler(sys.stderr)
-+    handler.setFormatter(
-+        logging.Formatter("{asctime} {levelname} {name} {message}", style="{")
-+    )
-+    root.addHandler(handler)
-+
-+    config = _load_config(args.config)
-+    pl.seed_everything(seed=config["random_seed"], workers=True)
-+    if not os.path.isfile(args.model):
-+        raise FileNotFoundError(f"Model checkpoint not found: {args.model}")
-+
-+    model = Spec2Pep().load_from_checkpoint(
-+        args.model,
-+        dim_model=config["dim_model"],
-+        n_head=config["n_head"],
-+        dim_feedforward=config["dim_feedforward"],
-+        n_layers=config["n_layers"],
-+        dropout=config["dropout"],
-+        dim_intensity=config["dim_intensity"],
-+        custom_encoder=config["custom_encoder"],
-+        max_length=config["max_length"],
-+        residues=config["residues"],
-+        max_charge=config["max_charge"],
-+        precursor_mass_tol=config["precursor_mass_tol"],
-+        isotope_error_range=config["isotope_error_range"],
-+        n_beams=config["n_beams"],
-+        n_log=config["n_log"],
-+        out_writer=None,
-+        use_peppr=False,
-+    )
-+    model.eval()
-+    model.to(args.device)
-+
-+    with tempfile.TemporaryDirectory() as temp_dir:
-+        loader = _build_loader(
-+            config,
-+            args.peak_path,
-+            os.path.join(temp_dir, f"teacher_{uuid.uuid4().hex}"),
-+        )
-+        score_chunks = []
-+        token_chunks = []
-+        max_length = 0
-+        skipped = 0
-+        with torch.no_grad():
-+            for spectra, precursors, sequences in tqdm(loader, desc="Teacher forcing"):
-+                spectra = spectra.to(args.device)
-+                precursors = precursors.to(args.device)
-+                sequences = [_translate_sequence(sequence) for sequence in sequences]
-+                try:
-+                    (scores, tokens), *_ = model._forward_step(
-+                        spectra, precursors, sequences
-+                    )
-+                except KeyError as error:
-+                    skipped += spectra.shape[0]
-+                    logging.getLogger("run_teacher").warning(
-+                        "Skipping %d spectra due to %s",
-+                        spectra.shape[0],
-+                        error,
-+                    )
-+                    continue
-+                scores = scores.detach().cpu()
-+                tokens = tokens.detach().cpu().long()
-+                score_chunks.append(scores)
-+                token_chunks.append(tokens)
-+                max_length = max(max_length, scores.shape[1], tokens.shape[1])
-+
-+    count = sum(chunk.shape[0] for chunk in score_chunks)
-+    vocab_size = model.decoder.vocab_size + 1
-+    all_scores = torch.zeros(count, max_length, vocab_size)
-+    all_tokens = torch.zeros(count, max_length, dtype=torch.long)
-+    offset = 0
-+    for scores, tokens in zip(score_chunks, token_chunks):
-+        batch_size = scores.shape[0]
-+        all_scores[offset:offset + batch_size, :scores.shape[1], :scores.shape[2]] = scores
-+        all_tokens[offset:offset + batch_size, :tokens.shape[1]] = tokens
-+        offset += batch_size
-+
-+    os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
-+    torch.save({"emb": all_scores, "true_tokenized": all_tokens}, args.out)
-+    print(f"Wrote teacher-forced output for {count} spectra to {args.out}")
-+    if skipped:
-+        print(f"Skipped {skipped} spectra with unmapped modifications")
-+
-+
-+if __name__ == "__main__":
-+    main()
