@@ -151,9 +151,8 @@ def generate_plm_training_data():
             "PEPPR_FASTA is required to build prior training data; point it at "
             "the proteome FASTA to digest."
         )
-    if const.PRIOR_WORK_DIR is None:
-        const.require_work_dir("prior training data")
-    os.makedirs(const.PRIOR_WORK_DIR, exist_ok=True)
+    const.require_work_dir("prior training data")
+    os.makedirs(const.WORK_DIR, exist_ok=True)
     # PEPPR_PRIOR_PROTEASES supports only tryptic digestion or non-specific
     # sliding-window generation.
     digestion_mode = os.environ.get("PEPPR_PRIOR_PROTEASES", "trypsin").strip().lower()
@@ -496,8 +495,8 @@ def generate_contranovo_fusion_files():
 def prepare_training_data() -> None:
     """Create prior and fusion training tensors when they do not already exist."""
     print(
-        f"=== Training data: prior={const.PRIOR_WORK_DIR}, "
-        f"run={const.RUN_WORK_DIR}, fusion={const.FUSION_WORK_DIR} ==="
+        f"=== Training data: work={const.WORK_DIR}, "
+        f"fusion={const.FUSION_WORK_DIR} ==="
     )
     prior_data_exists = (
         os.path.exists(const.PRIOR_SEQ_X_PATH)
