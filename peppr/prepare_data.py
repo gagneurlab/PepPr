@@ -151,7 +151,6 @@ def generate_plm_training_data():
             "PEPPR_FASTA is required to build prior training data; point it at "
             "the proteome FASTA to digest."
         )
-    const.require_work_dir("prior training data")
     os.makedirs(const.WORK_DIR, exist_ok=True)
     # PEPPR_PRIOR_PROTEASES supports only tryptic digestion or non-specific
     # sliding-window generation.

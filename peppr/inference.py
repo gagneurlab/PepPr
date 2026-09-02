@@ -115,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Processed {i} of {len(X_fusion)}")
 
         torch.save(scores_fusion,
-                   os.path.join(const.require_work_dir("fusion teacher scores"),
+                   os.path.join(const.WORK_DIR,
                                 "fusion_scores_teacher_test.pt"))
     elif model_type == 'contranovo':
         print("=== ContraNovo +/- prior ===")
@@ -130,8 +130,7 @@ def main(argv: list[str] | None = None) -> int:
         contranovo_config = os.path.join(contranovo_root, "ContraNovo", "config.yaml")
         run_denovo = os.path.join(contranovo_root, "run_denovo.py")
         out_root = os.path.join(
-            os.environ.get("PEPPR_RESULT_DIR")
-            or const.require_work_dir("ContraNovo results"),
+            os.environ.get("PEPPR_RESULT_DIR") or const.WORK_DIR,
             "contranovo",
         )
         os.makedirs(out_root, exist_ok=True)
