@@ -1,4 +1,4 @@
-# PepPr — peptide priors
+# PepPr
 
 Resolving spectral ambiguity in *de novo* peptide sequencing using peptide
 priors.
@@ -30,7 +30,7 @@ resolves Casanovo's nested `casanovo/` package as a namespace and breaks
 A ContraNovo integration is included too: `cd ContraNovo && git apply
 ../contranovo_integration.patch`.
 
-## Run
+## Inference
 
 Download and extract the model archive from Zenodo (DOI filled in on
 publication), then point at the checkpoints inside it:
@@ -55,41 +55,51 @@ applies. `--use_peppr false` gives the plain Casanovo baseline.
 
 ## Train
 
-Training writes its intermediates into the current directory and reads the
-proteome from `PEPPR_FASTA`. No data archive is involved.
+Priors and fusion heads are trained separately and don't need to be retrained
+together. A fusion head fuses a prior's scores with one specific backbone's
+score distribution (`PEPPR_BACKBONE`, e.g. Casanovo or ContraNovo), so it's
+reusable across any prior trained for that backbone: swap species by pointing
+`PEPPR_PRIOR_PATH` at a different prior and keep the same fusion head. Only
+changing the backbone itself requires training a new fusion head, since that
+changes the score distribution the fusion head was fit to.
+
+Training writes its intermediates into the current directory. Set
+`PEPPR_WORK_DIR` to write elsewhere.
+
+### Train a new prior
+
+Reads the proteome from `PEPPR_FASTA`. No data archive is involved.
 
 ```bash
 export PEPPR_FASTA=/path/to/proteome.fasta
 
-# Prior: digest the proteome, then train.
+# Digest the proteome, then train.
 python peppr/prepare_data.py
 PEPPR_PRIOR_PATH=/path/to/prior.pt python peppr/train_peptide_prior_model.py
+```
 
-# Fusion head: backbone teacher scores + prior teacher scores over one corpus.
+### Train a new fusion head
+
+Needed only when switching `PEPPR_BACKBONE`; a fusion head trained for one
+backbone works with every prior trained for that same backbone.
+
+```bash
+# Backbone teacher scores + prior teacher scores over one corpus.
 PEPPR_FUSION_PATH=/path/to/fusion.pth python peppr/train_fusion_head.py
 ```
 
-Set `PEPPR_WORK_DIR` to write elsewhere. The one part worth relocating
-deliberately is `fusion/`, holding the backbone teacher scores and fusion
-targets: those depend only on the training corpus, not on the prior, so point
-`PEPPR_FUSION_WORK_DIR` at a shared location to avoid recomputing them for
-every prior.
-
-The fusion head is prior-independent: once trained, swap priors at inference
-with `PEPPR_PRIOR_PATH`.
+The part worth relocating deliberately is `fusion/`, holding the backbone
+teacher scores and fusion targets: those depend only on the training corpus,
+not on the prior, so point `PEPPR_FUSION_WORK_DIR` at a shared location to
+avoid recomputing them for every prior.
 
 ## Environment variables
 
-| Variable                 | Meaning                                                   | Default        |
-| ------------------------ | --------------------------------------------------------- | -------------- |
-| `PEPPR_PRIOR_PATH`       | prior (pepLM) checkpoint                                  | required       |
-| `PEPPR_FUSION_PATH`      | fusion head                                               | required       |
-| `PEPPR_BACKBONE`         | `casanovo` or `contranovo`                                | `casanovo`     |
-| `PEPPR_WORK_DIR`         | root for training intermediates                           | current dir    |
-| `PEPPR_FASTA`            | proteome to digest for prior training                     | training only  |
-| `PEPPR_FUSION_WORK_DIR`  | shared fusion-corpus directory                            | `$WORK/fusion` |
-| `PEPPR_DATASETS_MODULE`  | module defining named datasets for `inference.py auto`    | `peppr.const`  |
+| Variable            | Meaning                     | Default    |
+| ------------------- | --------------------------- | ---------- |
+| `PEPPR_PRIOR_PATH`  | filepath of prior model     | required   |
+| `PEPPR_FUSION_PATH` | filepath of fusion model    | required   |
+| `PEPPR_BACKBONE`    | `casanovo` or `contranovo`  | `casanovo` |
 
-Inference needs only the two checkpoint paths. Anything that genuinely requires
-a training directory fails with a message naming the variable to set.
-operation that needs them fails with a message naming the variable to set.
+Inference needs only these three. Anything that genuinely requires a training
+directory fails with a message naming the variable to set.
