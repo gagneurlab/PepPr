@@ -85,6 +85,8 @@ backbone works with every prior trained for that same backbone.
 
 ```bash
 # Backbone teacher scores + prior teacher scores over one corpus.
+# PEPPR_BACKBONE selects which backbone's teacher scores to compute
+# ('casanovo', the default, or 'contranovo').
 PEPPR_FUSION_PATH=/path/to/fusion.pth python peppr/train_fusion_head.py
 ```
 
@@ -95,11 +97,13 @@ avoid recomputing them for every prior.
 
 ## Environment variables
 
-| Variable            | Meaning                     | Default    |
-| ------------------- | --------------------------- | ---------- |
-| `PEPPR_PRIOR_PATH`  | filepath of prior model     | required   |
-| `PEPPR_FUSION_PATH` | filepath of fusion model    | required   |
-| `PEPPR_BACKBONE`    | `casanovo` or `contranovo`  | `casanovo` |
+| Variable            | Meaning                  | Default  |
+| ------------------- | ------------------------ | -------- |
+| `PEPPR_PRIOR_PATH`  | filepath of prior model  | required |
+| `PEPPR_FUSION_PATH` | filepath of fusion model | required |
 
-Inference needs only these three. Anything that genuinely requires a training
-directory fails with a message naming the variable to set.
+Inference needs only these two — which backbone runs is decided by which CLI
+you invoke (`casanovo sequence`, ContraNovo's equivalent, ...), not by an env
+var. `PEPPR_BACKBONE` is a training-only variable; see Train a new fusion
+head above. Anything that genuinely requires a training directory fails with
+a message naming the variable to set.
