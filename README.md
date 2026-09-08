@@ -102,8 +102,5 @@ avoid recomputing them for every prior.
 | `PEPPR_PRIOR_PATH`  | filepath of prior model  | required |
 | `PEPPR_FUSION_PATH` | filepath of fusion model | required |
 
-Inference needs only these two — which backbone runs is decided by which CLI
-you invoke (`casanovo sequence`, ContraNovo's equivalent, ...), not by an env
-var. `PEPPR_BACKBONE` is a training-only variable; see Train a new fusion
-head above. Anything that genuinely requires a training directory fails with
-a message naming the variable to set.
+Inference needs only these two. Anything that genuinely requires a training
+directory fails with a message naming the variable to set.
