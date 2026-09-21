@@ -202,3 +202,118 @@ index 4295682..1a60a7f 100644
      )
      # Read the MS/MS spectra for which to predict peptide sequences.
      if annotated:
+diff --git a/run_denovo.py b/run_denovo.py
+new file mode 100644
+index 0000000..41cd7a7
+--- /dev/null
++++ b/run_denovo.py
+@@ -0,0 +1,109 @@
++"""Run ContraNovo in denovo (predict) mode and dump PSMs to CSV.
++
++Upstream `python -m ContraNovo.ContraNovo --mode=denovo` crashes with
++`AttributeError: 'NoneType' object has no attribute 'save'` because
++`ContraNovo.py` hardcodes ``writer = None`` then calls ``writer.save()``.
++This script plugs in a minimal writer that collects the per-spectrum PSMs
++produced inside ``Spec2Pep.on_predict_epoch_end`` and writes them to CSV.
++
++With ``annotated=False`` in predict mode the MGF parser stores each
++spectrum's ``TITLE`` in the ``annotations`` slot, so the ``spectrum_i``
++field that ends up in each PSM tuple is the MGF ``TITLE`` string — which
++is what we need to join predictions back to ground-truth SEQ lines.
++"""
++import argparse
++import csv
++import datetime
++import logging
++import os
++import sys
++
++import torch
++import yaml
++from pytorch_lightning.lite import LightningLite
++
++from ContraNovo import utils
++from ContraNovo.denovo import model_runner
++
++
++class SimpleWriter:
++    """Minimal writer with the attributes Spec2Pep.on_predict_epoch_end uses."""
++
++    def __init__(self, out_csv):
++        self.out_csv = out_csv
++        self.psms = []
++
++    def save(self):
++        with open(self.out_csv, "w", newline="") as f:
++            w = csv.writer(f)
++            w.writerow([
++                "title", "peptide", "score", "charge",
++                "precursor_mz", "calc_mz", "aa_scores",
++            ])
++            for psm in self.psms:
++                peptide, title, score, charge, prec_mz, calc_mz, aa_scores = psm
++                w.writerow([title, peptide, score, charge, prec_mz, calc_mz, aa_scores])
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--peak_path", required=True, help="Input .mgf path")
++    parser.add_argument("--model", required=True, help="ContraNovo .ckpt path")
++    parser.add_argument("--out", required=True, help="Output CSV path")
++    parser.add_argument(
++        "--config",
++        default=os.path.join(os.path.dirname(__file__), "ContraNovo", "config.yaml"),
++    )
++    parser.add_argument(
++        "--use_peppr",
++        type=lambda v: str(v).lower() in ("1", "true", "yes", "y"),
++        default=False,
++        help="If true, fuse peptide-prior predictions with ContraNovo logits during beam search.",
++    )
++    args = parser.parse_args()
++
++    logging.captureWarnings(True)
++    root = logging.getLogger()
++    root.setLevel(logging.INFO)
++    console_handler = logging.StreamHandler(sys.stderr)
++    console_handler.setLevel(logging.INFO)
++    console_handler.setFormatter(logging.Formatter(
++        "{asctime} {levelname} {name} {message}", style="{",
++    ))
++    root.addHandler(console_handler)
++    for quiet in ("github", "h5py", "numba", "pytorch_lightning", "torch", "urllib3"):
++        logging.getLogger(quiet).setLevel(logging.WARNING)
++
++    with open(args.config) as f:
++        config = yaml.safe_load(f)
++
++    config_types = dict(
++        random_seed=int, n_peaks=int, min_mz=float, max_mz=float,
++        min_intensity=float, remove_precursor_tol=float, max_charge=int,
++        precursor_mass_tol=float,
++        isotope_error_range=lambda mm: (int(mm[0]), int(mm[1])),
++        dim_model=int, n_head=int, dim_feedforward=int, n_layers=int,
++        dropout=float, dim_intensity=int, max_length=int, n_log=int,
++        warmup_iters=int, max_iters=int, learning_rate=float,
++        weight_decay=float, train_batch_size=int, predict_batch_size=int,
++        n_beams=int, max_epochs=int, num_sanity_val_steps=int,
++        train_from_scratch=bool, save_model=bool, model_save_folder_path=str,
++        save_weights_only=bool, every_n_train_steps=int,
++    )
++    for k, t in config_types.items():
++        if config.get(k) is not None:
++            config[k] = t(config[k])
++    config["residues"] = {str(aa): float(m) for aa, m in config["residues"].items()}
++    config["n_workers"] = utils.n_workers()
++    LightningLite.seed_everything(seed=config["random_seed"], workers=True)
++
++    writer = SimpleWriter(args.out)
++    model_runner.predict(
++        args.peak_path, args.model, config, writer, use_peppr=args.use_peppr
++    )
++    writer.save()
++    print(f"Wrote {len(writer.psms)} PSMs to {args.out}")
++
++
++if __name__ == "__main__":
++    main()
